@@ -1,0 +1,14 @@
+{
+  "name": "Adivina Quién",
+  "short_name": "Adivina Quién",
+  "description": "Reparte personajes secretos para jugar presencialmente con amigos.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#080d19",
+  "theme_color": "#0b1020",
+  "lang": "es",
+  "icons": [
+    {"src":"./iconos/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},
+    {"src":"./iconos/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
+  ]
+}
