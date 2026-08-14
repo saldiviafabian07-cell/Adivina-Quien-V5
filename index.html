@@ -1606,32 +1606,86 @@ button,input{font:inherit}button{cursor:pointer;border:0}.app{width:min(100%,680
   }
   function broadcast(payload){state.connections.forEach(c=>{if(c.open){try{c.send(payload);}catch(e){}}});}
 
+  function peerOptions(debug=0){
+    return {
+      host:'0.peerjs.com',
+      port:443,
+      path:'/',
+      secure:true,
+      debug,
+      config:{iceServers:[
+        {urls:'stun:stun.l.google.com:19302'},
+        {urls:'stun:stun1.l.google.com:19302'}
+      ]}
+    };
+  }
+
   function setupHost(){
     state.mode='host';state.roomCode=roomCode();state.hostName=($('hostNameInput').value.trim()||'Anfitrión').slice(0,30);state.playerId='host';destroyNetwork();
-    $('createRoomBtn').disabled=true;notice('Creando sala…');
-    state.peer=new Peer(`adivina-${state.roomCode.toLowerCase()}`,{debug:0});
-    state.peer.on('open',id=>{state.peer.id=id;renderLobbyHost();show('lobby');notice('Sala creada. Comparte el código con los demás.','success','lobbyNotice');});
-    state.peer.on('connection',conn=>{
-      conn.on('open',()=>{
-        state.connections.set(conn.peer,conn);
-        conn.on('data',data=>handleHostData(conn,data));
-        conn.on('close',()=>{state.connections.delete(conn.peer);renderLobbyHost();broadcast({type:'lobby',players:hostLobbyPlayers()});});
-        conn.on('error',()=>{state.connections.delete(conn.peer);renderLobbyHost();});
-        conn.send({type:'hello',room:state.roomCode,hostName:state.hostName});
-      });
+    $('createRoomBtn').disabled=true;notice('Conectando la sala…');
+    const peerId=`adivina-${state.roomCode.toLowerCase()}`;
+    state.peer=new Peer(peerId,peerOptions(1));
+    state.peer.on('open',()=>{
+      renderLobbyHost();show('lobby');
+      notice('Sala creada. Comparte el código con los demás.','success','lobbyNotice');
     });
-    state.peer.on('error',err=>{console.error(err);$('createRoomBtn').disabled=false;notice(err?.type==='unavailable-id'?'Ese código ya está ocupado. Crea la sala otra vez.':'No se pudo conectar la sala. Revisa internet.','error');});
+    state.peer.on('connection',conn=>{
+      // Registrar y escuchar INMEDIATAMENTE para evitar perder el primer mensaje del jugador.
+      state.connections.set(conn.peer,conn);
+      conn.meta=conn.meta||{};
+      conn.on('data',data=>handleHostData(conn,data));
+      conn.on('close',()=>{
+        state.connections.delete(conn.peer);renderLobbyHost();broadcast({type:'lobby',players:hostLobbyPlayers()});
+      });
+      conn.on('error',err=>{
+        console.warn('Host connection error:',err);
+        state.connections.delete(conn.peer);renderLobbyHost();broadcast({type:'lobby',players:hostLobbyPlayers()});
+      });
+      conn.on('open',()=>{
+        try{conn.send({type:'hello',room:state.roomCode,hostName:state.hostName});}catch(e){}
+      });
+      renderLobbyHost();
+    });
+    state.peer.on('disconnected',()=>{
+      notice('Conexión de sala perdida. Reconectando…','info','lobbyNotice');
+      try{state.peer.reconnect();}catch(e){}
+    });
+    state.peer.on('error',err=>{
+      console.error('PeerJS host error:',err);
+      const t=err?.type||'';
+      $('createRoomBtn').disabled=false;
+      if(t==='unavailable-id'){
+        notice('Ese código de sala ya está ocupado. Vuelve a crear la sala para generar otro.','error','roomNotice');
+      }else if(t==='network'||t==='server-error'||t==='socket-error'||t==='socket-closed'){
+        notice('No se pudo conectar con el servidor de salas. Comprueba que ambos celulares tengan Internet.','error','roomNotice');
+      }else{
+        notice(`No se pudo crear la sala (${t||'error de conexión'}).`,'error','roomNotice');
+      }
+    });
   }
 
   function handleHostData(conn,data){
     if(!data||typeof data!=='object')return;
     if(data.type==='join'){
-      if(state.connections.size>=19){conn.send({type:'error',message:'La sala está llena.'});return;}
-      conn.meta={name:String(data.name||'Jugador').slice(0,30),playerId:String(data.playerId||conn.peer)};
-      conn.send({type:'accepted',room:state.roomCode,hostName:state.hostName});
+      if(state.connections.size>19){conn.send({type:'error',message:'La sala está llena.'});return;}
+      const incomingName=String(data.name||'Jugador').trim().slice(0,30)||'Jugador';
+      conn.meta={name:incomingName,playerId:String(data.playerId||conn.peer)};
+      try{conn.send({type:'accepted',room:state.roomCode,hostName:state.hostName});}catch(e){}
+      renderLobbyHost();broadcast({type:'lobby',players:hostLobbyPlayers()});
+      return;
+    }
+    if(data.type==='leave'){
+      state.connections.delete(conn.peer);try{conn.close();}catch(e){}
+      renderLobbyHost();broadcast({type:'lobby',players:hostLobbyPlayers()});return;
+    }
+    if(data.type==='readyAgain'){
+      // El jugador sigue conectado; simplemente vuelve a quedar disponible en el lobby.
       renderLobbyHost();broadcast({type:'lobby',players:hostLobbyPlayers()});
     }
-    if(data.type==='leave'){state.connections.delete(conn.peer);try{conn.close();}catch(e){}renderLobbyHost();broadcast({type:'lobby',players:hostLobbyPlayers()});}
+  }
+
+  function buildPlayerPeer(){
+    return new Peer(undefined,peerOptions(1));
   }
 
   function connectPlayer(){
@@ -1639,55 +1693,73 @@ button,input{font:inherit}button{cursor:pointer;border:0}.app{width:min(100%,680
     if(!/^[A-Z2-9]{5}$/.test(code))return notice('Escribe un código de 5 caracteres.','error','joinNotice');
     if(!name)return notice('Escribe tu nombre.','error','joinNotice');
     destroyNetwork();state.mode='player';state.roomCode=code;state.playerName=name;state.playerId=`p-${Math.random().toString(36).slice(2,10)}`;state.joinAttempts=0;
-    $('joinRoomBtn').disabled=true;notice('Conectando con la sala…','','joinNotice');
-    state.peer=new Peer(undefined,{debug:1});
-    state.peer.on('open',()=>attemptJoin());
-    state.peer.on('disconnected',()=>{try{state.peer.reconnect();}catch(e){}});
+    $('joinRoomBtn').disabled=true;notice('Buscando la sala…','','joinNotice');
+    createPlayerPeerAndJoin();
+  }
+
+  function createPlayerPeerAndJoin(){
+    if(state.mode!=='player')return;
+    if(state.peer){try{state.peer.destroy();}catch(e){}}
+    state.hostConn=null;
+    state.peer=buildPlayerPeer();
+    let opened=false;
+    state.peer.on('open',()=>{opened=true;attemptJoin();});
+    state.peer.on('disconnected',()=>{
+      if(state.mode!=='player')return;
+      try{state.peer.reconnect();}catch(e){scheduleJoinRetry('Reconectando con el servidor…');}
+    });
     state.peer.on('error',err=>{
-      console.error('PeerJS error:',err);
+      console.warn('PeerJS player error:',err);
       const t=err?.type||'';
-      if(t==='peer-unavailable'){
-        scheduleJoinRetry('La sala todavía no responde. Intentando de nuevo…');
-        return;
-      }
-      if(t==='network'){
-        scheduleJoinRetry('Problema de red. Intentando de nuevo…');
+      if(t==='peer-unavailable'||t==='network'||t==='server-error'||t==='socket-error'||t==='socket-closed'){
+        scheduleJoinRetry(t==='peer-unavailable'?'No se encontró la sala todavía…':'Problema de conexión…');
         return;
       }
       $('joinRoomBtn').disabled=false;
-      notice(`No se pudo conectar (${t||'error de conexión'}). Comprueba el código e internet.`,'error','joinNotice');
+      notice(`No se pudo entrar (${t||'error de conexión'}). Comprueba el código y la conexión a Internet.`,'error','joinNotice');
     });
+    setTimeout(()=>{
+      if(state.mode==='player'&&!opened&&!state.joinRetryTimer)scheduleJoinRetry('El servidor está tardando en responder…');
+    },5000);
   }
 
   function scheduleJoinRetry(message){
-    if(state.mode!=='player'||!state.peer)return;
-    if(state.joinAttempts>=8){
+    if(state.mode!=='player')return;
+    if(state.joinRetryTimer)return;
+    if(state.joinAttempts>=15){
       $('joinRoomBtn').disabled=false;
-      notice('No se encontró la sala. Comprueba el código y que el anfitrión siga dentro del lobby.','error','joinNotice');
+      notice('No se pudo encontrar la sala. Verifica el código y que el anfitrión tenga la sala abierta.','error','joinNotice');
       return;
     }
     state.joinAttempts++;
-    notice(`${message} (${state.joinAttempts}/8)`,'info','joinNotice');
-    if(state.joinRetryTimer)clearTimeout(state.joinRetryTimer);
-    state.joinRetryTimer=setTimeout(attemptJoin,1200);
+    notice(`${message} (${state.joinAttempts}/15)`,'info','joinNotice');
+    state.joinRetryTimer=setTimeout(()=>{
+      state.joinRetryTimer=null;
+      createPlayerPeerAndJoin();
+    },1200);
   }
 
   function attemptJoin(){
-    if(state.mode!=='player'||!state.peer)return;
+    if(state.mode!=='player'||!state.peer||state.peer.destroyed)return;
     if(state.hostConn){try{state.hostConn.close();}catch(e){}state.hostConn=null;}
     const target=`adivina-${state.roomCode.toLowerCase()}`;
-    const conn=state.peer.connect(target,{reliable:true,serialization:'json'});state.hostConn=conn;
+    const conn=state.peer.connect(target,{reliable:true,serialization:'json',metadata:{room:state.roomCode,name:state.playerName,playerId:state.playerId}});state.hostConn=conn;
     let opened=false;
+    const joinTimeout=setTimeout(()=>{if(!opened) scheduleJoinRetry('La sala no respondió…');},5000);
     conn.on('open',()=>{
-      opened=true;state.joinAttempts=0;
-      conn.send({type:'join',name:state.playerName,playerId:state.playerId});
+      opened=true;clearTimeout(joinTimeout);state.joinAttempts=0;
       conn.on('data',handlePlayerData);
-      conn.on('close',()=>{if(state.mode==='player')notice('Se perdió la conexión con el anfitrión.','error','lobbyNotice');});
-      notice('Conectado. Esperando al anfitrión…','success','joinNotice');
+      try{conn.send({type:'join',name:state.playerName,playerId:state.playerId});}catch(e){scheduleJoinRetry('No se pudo enviar tus datos…');return;}
+      show('lobby');
+      notice('Conectado. Esperando al anfitrión…','success','lobbyNotice');
     });
     conn.on('error',err=>{
       console.warn('Room connection error:',err);
-      if(!opened)scheduleJoinRetry('La sala aún no está disponible.');
+      clearTimeout(joinTimeout);
+      if(!opened)scheduleJoinRetry('La sala todavía no está disponible…');
+    });
+    conn.on('close',()=>{
+      if(state.mode==='player')scheduleJoinRetry('Se perdió la conexión. Reintentando…');
     });
   }
 
