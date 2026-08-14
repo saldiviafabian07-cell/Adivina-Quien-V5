@@ -1561,282 +1561,296 @@ button,input{font:inherit}button{cursor:pointer;border:0}.app{width:min(100%,680
   }
 ];
   </script>
-<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+
+<script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-database-compat.js"></script>
 <script>
 (() => {
-  const screens=['home','setup','join','lobby','prep','pass','reveal','finish'];
-  const baseDeDatos=window.baseDeDatos||[];
-  const state={mode:null,roomCode:'',peer:null,hostConn:null,connections:new Map(),players:[],hostName:'',playerName:'',playerId:'',categories:[],difficulty:'media',assignments:[],myAssignment:null,countdownTimer:null,joinRetryTimer:null,joinAttempts:0};
-  const $=id=>document.getElementById(id);
-  const setText=(id,value)=>{if($(id)) $(id).textContent=value;};
+  const firebaseConfig = {
+    apiKey: "AIzaSyDmAKpjAWZcoI-KdfqpJgaRj7OezoyDjF5g",
+    authDomain: "adivina-quien-v7.firebaseapp.com",
+    databaseURL: "https://adivina-quien-v7-default-rtdb.firebaseio.com",
+    projectId: "adivina-quien-v7",
+    storageBucket: "adivina-quien-v7.firebasestorage.app",
+    messagingSenderId: "61261772594",
+    appId: "1:61261772594:web:d002b1d8f1b9b4b77d892b",
+    measurementId: "G-4KTVL0ZW3G"
+  };
 
-  function show(id){screens.forEach(s=>$(s)?.classList.toggle('active',s===id));const labels={home:'',setup:'1 / 3',join:'1 / 3',lobby:'2 / 3',prep:'3 / 3',pass:'3 / 3',reveal:'3 / 3',finish:''};setText('stepBadge',labels[id]||'');}
-  function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-  function notice(text,type='info',where='roomNotice'){
-    const ids=['roomNotice','joinNotice','lobbyNotice'];
-    ids.forEach(id=>{const el=$(id);if(el){el.textContent='';el.className='room-notice';}});
-    const el=$(where); if(!el)return; el.textContent=text||''; el.className=`room-notice ${type} ${text?'show':''}`;
+  const firebaseApp = firebase.initializeApp(firebaseConfig);
+  const db = firebase.database(firebaseApp);
+  const baseDeDatos = window.baseDeDatos || [];
+  const screens = ['home','setup','join','lobby','prep','pass','reveal','finish'];
+  const state = {
+    mode: null,
+    roomCode: '',
+    playerId: getOrCreatePlayerId(),
+    playerName: '',
+    hostName: '',
+    categories: [],
+    difficulty: 'media',
+    roomRef: null,
+    roomListener: null,
+    myAssignment: null,
+    countdownTimer: null,
+    roomUnsubscribed: false
+  };
+
+  const $ = id => document.getElementById(id);
+  const setText = (id, text) => { const el=$(id); if(el) el.textContent = text ?? ''; };
+  const escapeHtml = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  function getOrCreatePlayerId(){
+    const key='adivina_quien_player_id';
+    let id=localStorage.getItem(key);
+    if(!id){ id='p_'+Math.random().toString(36).slice(2)+Date.now().toString(36); localStorage.setItem(key,id); }
+    return id;
   }
-  function clearNotice(){['roomNotice','joinNotice','lobbyNotice'].forEach(id=>{const el=$(id);if(el){el.textContent='';el.className='room-notice';}})}
-  function clearCountdown(){if(state.countdownTimer){clearInterval(state.countdownTimer);state.countdownTimer=null;}if(state.joinRetryTimer){clearTimeout(state.joinRetryTimer);state.joinRetryTimer=null;}}
-  function destroyNetwork(){clearCountdown();state.connections.forEach(c=>{try{c.close();}catch(e){}});state.connections.clear();if(state.hostConn){try{state.hostConn.close();}catch(e){}}state.hostConn=null;if(state.peer){try{state.peer.destroy();}catch(e){}}state.peer=null;}
-  function roomCode(){const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';return Array.from({length:5},()=>chars[Math.floor(Math.random()*chars.length)]).join('');}
-  function shuffle(arr){const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
-  function difficultyPool(d,pool){const exact=pool.filter(p=>p.dificultad===d);if(exact.length>=state.players)return exact;if(d==='media')return[...exact,...pool.filter(p=>p.dificultad==='facil')];if(d==='dificil')return[...exact,...pool.filter(p=>p.dificultad==='media'),...pool.filter(p=>p.dificultad==='facil')];return exact.length?exact:pool;}
+  function roomCode(){
+    const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let s=''; for(let i=0;i<5;i++) s+=chars[Math.floor(Math.random()*chars.length)];
+    return s;
+  }
+  function show(id){
+    clearNotice();
+    screens.forEach(s => { const el=$(s); if(el) el.classList.toggle('active', s===id); });
+    const labels={home:'',setup:'SALA',join:'SALA',lobby:'LOBBY',prep:'PARTIDA',pass:'PARTIDA',reveal:'PARTIDA',finish:'FINAL'};
+    setText('stepBadge',labels[id]||'');
+  }
+  function notice(msg, type='', target='roomNotice'){
+    const el=$(target); if(!el) return;
+    el.textContent=msg||''; el.className='room-notice'+(msg?' show ':'')+(type?' '+type:'');
+  }
+  function clearNotice(){
+    ['roomNotice','joinNotice','lobbyNotice'].forEach(id=>{const el=$(id);if(el){el.textContent='';el.className='room-notice';}});
+  }
+  function clearCountdown(){if(state.countdownTimer){clearInterval(state.countdownTimer);state.countdownTimer=null;}}
 
   function renderCategories(){
     const cats=[...new Set(baseDeDatos.map(p=>p.categoria))];
     $('categoryBox').innerHTML='';
-    cats.forEach(cat=>{const b=document.createElement('button');b.type='button';b.className='chip';b.textContent=cat;b.onclick=()=>{b.classList.toggle('selected');state.categories=[...document.querySelectorAll('#categoryBox .chip.selected')].map(x=>x.textContent);$('toggleCategoriesBtn').textContent=state.categories.length===cats.length?'Quitar selección':'Seleccionar todas';};$('categoryBox').appendChild(b);});
+    cats.forEach(cat=>{
+      const b=document.createElement('button'); b.type='button'; b.className='chip'; b.textContent=cat;
+      b.onclick=()=>{ b.classList.toggle('selected'); updateSelectedCategories(); };
+      $('categoryBox').appendChild(b);
+    });
   }
-  function setDifficulty(v){state.difficulty=v;document.querySelectorAll('.diff').forEach(b=>b.classList.toggle('selected',b.dataset.diff===v));}
+  function updateSelectedCategories(){
+    state.categories=[...document.querySelectorAll('#categoryBox .chip.selected')].map(x=>x.textContent);
+    const total=document.querySelectorAll('#categoryBox .chip').length;
+    $('toggleCategoriesBtn').textContent=state.categories.length===total?'Quitar selección':'Seleccionar todas';
+  }
+  function setDifficulty(v){ state.difficulty=v; document.querySelectorAll('.diff').forEach(b=>b.classList.toggle('selected',b.dataset.diff===v)); }
+  function shuffle(arr){
+    const a=[...arr];
+    for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+    return a;
+  }
+  function difficultyPool(selectedDifficulty,pool,players){
+    const exact=pool.filter(p=>p.dificultad===selectedDifficulty);
+    if(exact.length>=players) return exact;
+    if(selectedDifficulty==='media') return [...exact,...pool.filter(p=>p.dificultad==='facil')];
+    if(selectedDifficulty==='dificil') return [...exact,...pool.filter(p=>p.dificultad==='media'),...pool.filter(p=>p.dificultad==='facil')];
+    return exact.length?exact:pool;
+  }
 
-  function hostLobbyPlayers(){return[{id:state.playerId,name:state.hostName,host:true},...Array.from(state.connections.entries()).filter(([,c])=>c.meta?.name).map(([id,c])=>({id,name:c.meta.name,host:false}))];}
-  function renderLobbyHost(){
-    const players=hostLobbyPlayers();
-    setText('roomCodeValue',state.roomCode);setText('lobbyCount',`${players.length} / 20 jugadores`);
+  function normalizeRoomPlayers(data){
+    const players=data?.players||{};
+    return Object.entries(players).map(([id,p])=>({id,...p})).sort((a,b)=>(a.joinedAt||0)-(b.joinedAt||0));
+  }
+  function renderLobby(data){
+    const players=normalizeRoomPlayers(data);
+    const isHost=state.mode==='host';
+    setText('roomCodeValue',state.roomCode);
+    setText('lobbyCount',`${players.length} / 20 jugadores`);
     $('lobbyList').innerHTML=players.map(p=>`<div class="lobby-player"><span class="player-icon">${p.host?'👑':'🟢'}</span><span>${escapeHtml(p.name)}</span><span class="lobby-role">${p.host?'anfitrión':'listo'}</span></div>`).join('');
-    $('startRoomBtn').disabled=players.length<2;$('startRoomBtn').style.display='block';$('waitingHost').style.display='none';
-  }
-  function renderLobbyPlayer(players){
-    setText('roomCodeValue',state.roomCode);setText('lobbyCount',`${players?.length||1} jugadores conectados`);
-    const list=players?.length?players:[{name:state.playerName,host:false}];
-    $('lobbyList').innerHTML=list.map(p=>`<div class="lobby-player"><span class="player-icon">${p.host?'👑':'🟢'}</span><span>${escapeHtml(p.name)}</span><span class="lobby-role">${p.host?'anfitrión':'listo'}</span></div>`).join('');
-    $('startRoomBtn').style.display='none';$('waitingHost').style.display='block';
-  }
-  function broadcast(payload){state.connections.forEach(c=>{if(c.open){try{c.send(payload);}catch(e){}}});}
-
-  function peerOptions(debug=0){
-    return {
-      host:'0.peerjs.com',
-      port:443,
-      path:'/',
-      secure:true,
-      debug,
-      config:{iceServers:[
-        {urls:'stun:stun.l.google.com:19302'},
-        {urls:'stun:stun1.l.google.com:19302'}
-      ]}
-    };
+    $('startRoomBtn').style.display=isHost?'block':'none';
+    $('startRoomBtn').disabled=!isHost || players.length<2 || !data?.game || data.game.phase!=='lobby';
+    $('waitingHost').style.display=isHost?'none':'block';
+    if(!isHost) $('waitingHost').textContent='Esperando al anfitrión…';
   }
 
-  function setupHost(){
-    state.mode='host';state.roomCode=roomCode();state.hostName=($('hostNameInput').value.trim()||'Anfitrión').slice(0,30);state.playerId='host';destroyNetwork();
-    $('createRoomBtn').disabled=true;notice('Conectando la sala…');
-    const peerId=`adivina-${state.roomCode.toLowerCase()}`;
-    state.peer=new Peer(peerId,peerOptions(1));
-    state.peer.on('open',()=>{
-      renderLobbyHost();show('lobby');
-      notice('Sala creada. Comparte el código con los demás.','success','lobbyNotice');
-    });
-    state.peer.on('connection',conn=>{
-      // Registrar y escuchar INMEDIATAMENTE para evitar perder el primer mensaje del jugador.
-      state.connections.set(conn.peer,conn);
-      conn.meta=conn.meta||{};
-      conn.on('data',data=>handleHostData(conn,data));
-      conn.on('close',()=>{
-        state.connections.delete(conn.peer);renderLobbyHost();broadcast({type:'lobby',players:hostLobbyPlayers()});
-      });
-      conn.on('error',err=>{
-        console.warn('Host connection error:',err);
-        state.connections.delete(conn.peer);renderLobbyHost();broadcast({type:'lobby',players:hostLobbyPlayers()});
-      });
-      conn.on('open',()=>{
-        try{conn.send({type:'hello',room:state.roomCode,hostName:state.hostName});}catch(e){}
-      });
-      renderLobbyHost();
-    });
-    state.peer.on('disconnected',()=>{
-      notice('Conexión de sala perdida. Reconectando…','info','lobbyNotice');
-      try{state.peer.reconnect();}catch(e){}
-    });
-    state.peer.on('error',err=>{
-      console.error('PeerJS host error:',err);
-      const t=err?.type||'';
-      $('createRoomBtn').disabled=false;
-      if(t==='unavailable-id'){
-        notice('Ese código de sala ya está ocupado. Vuelve a crear la sala para generar otro.','error','roomNotice');
-      }else if(t==='network'||t==='server-error'||t==='socket-error'||t==='socket-closed'){
-        notice('No se pudo conectar con el servidor de salas. Comprueba que ambos celulares tengan Internet.','error','roomNotice');
-      }else{
-        notice(`No se pudo crear la sala (${t||'error de conexión'}).`,'error','roomNotice');
-      }
+  function listenToRoom(){
+    stopRoomListener();
+    if(!state.roomRef) return;
+    state.roomListener=snap=>handleRoomSnapshot(snap.val());
+    state.roomRef.on('value',state.roomListener,err=>{
+      console.error(err);
+      notice('No se pudo leer la sala. Revisa las reglas de Realtime Database.','error','lobbyNotice');
     });
   }
+  function stopRoomListener(){
+    if(state.roomRef && state.roomListener){state.roomRef.off('value',state.roomListener);}
+    state.roomListener=null;
+  }
 
-  function handleHostData(conn,data){
-    if(!data||typeof data!=='object')return;
-    if(data.type==='join'){
-      if(state.connections.size>19){conn.send({type:'error',message:'La sala está llena.'});return;}
-      const incomingName=String(data.name||'Jugador').trim().slice(0,30)||'Jugador';
-      conn.meta={name:incomingName,playerId:String(data.playerId||conn.peer)};
-      try{conn.send({type:'accepted',room:state.roomCode,hostName:state.hostName});}catch(e){}
-      renderLobbyHost();broadcast({type:'lobby',players:hostLobbyPlayers()});
+  function handleRoomSnapshot(data){
+    if(!data){
+      state.roomRef=null; stopRoomListener();
+      notice('La sala ya no existe o el anfitrión la cerró.','error','joinNotice');
+      $('joinRoomBtn').disabled=false;
+      show('join');
       return;
     }
-    if(data.type==='leave'){
-      state.connections.delete(conn.peer);try{conn.close();}catch(e){}
-      renderLobbyHost();broadcast({type:'lobby',players:hostLobbyPlayers()});return;
+    const players=normalizeRoomPlayers(data);
+    const me=players.find(p=>p.id===state.playerId);
+    if(state.mode==='player' && !me && data.game?.phase==='lobby'){
+      notice('Tu conexión con la sala se perdió. Intenta entrar de nuevo.','error','joinNotice');
+      $('joinRoomBtn').disabled=false; show('join'); return;
     }
-    if(data.type==='readyAgain'){
-      // El jugador sigue conectado; simplemente vuelve a quedar disponible en el lobby.
-      renderLobbyHost();broadcast({type:'lobby',players:hostLobbyPlayers()});
+    if(data.settings){ state.categories=data.settings.categories||state.categories; state.difficulty=data.settings.difficulty||state.difficulty; }
+    if(data.game?.phase==='lobby'){
+      state.myAssignment=null; renderLobby(data); show('lobby'); return;
+    }
+    if(data.game?.phase==='prep'){
+      const assignment=data.game.assignments?.[state.playerId];
+      if(!assignment){ notice('La partida comenzó, pero no se encontró tu personaje.','error','lobbyNotice'); return; }
+      state.myAssignment=assignment; renderPrep(data.game.startsAt,data.game.revealAt); show('prep'); scheduleReveal(data.game.revealAt); return;
+    }
+    if(data.game?.phase==='reveal'){
+      const assignment=data.game.assignments?.[state.playerId];
+      if(!assignment){ return; }
+      state.myAssignment=assignment; renderReveal(); show('reveal'); clearCountdown(); return;
     }
   }
 
-  function buildPlayerPeer(){
-    return new Peer(undefined,peerOptions(1));
-  }
-
-  function connectPlayer(){
-    const code=$('joinRoomCode').value.trim().toUpperCase(),name=$('joinName').value.trim().slice(0,30);
-    if(!/^[A-Z2-9]{5}$/.test(code))return notice('Escribe un código de 5 caracteres.','error','joinNotice');
-    if(!name)return notice('Escribe tu nombre.','error','joinNotice');
-    destroyNetwork();state.mode='player';state.roomCode=code;state.playerName=name;state.playerId=`p-${Math.random().toString(36).slice(2,10)}`;state.joinAttempts=0;
-    $('joinRoomBtn').disabled=true;notice('Buscando la sala…','','joinNotice');
-    createPlayerPeerAndJoin();
-  }
-
-  function createPlayerPeerAndJoin(){
-    if(state.mode!=='player')return;
-    if(state.peer){try{state.peer.destroy();}catch(e){}}
-    state.hostConn=null;
-    state.peer=buildPlayerPeer();
-    let opened=false;
-    state.peer.on('open',()=>{opened=true;attemptJoin();});
-    state.peer.on('disconnected',()=>{
-      if(state.mode!=='player')return;
-      try{state.peer.reconnect();}catch(e){scheduleJoinRetry('Reconectando con el servidor…');}
-    });
-    state.peer.on('error',err=>{
-      console.warn('PeerJS player error:',err);
-      const t=err?.type||'';
-      if(t==='peer-unavailable'||t==='network'||t==='server-error'||t==='socket-error'||t==='socket-closed'){
-        scheduleJoinRetry(t==='peer-unavailable'?'No se encontró la sala todavía…':'Problema de conexión…');
-        return;
-      }
-      $('joinRoomBtn').disabled=false;
-      notice(`No se pudo entrar (${t||'error de conexión'}). Comprueba el código y la conexión a Internet.`,'error','joinNotice');
-    });
-    setTimeout(()=>{
-      if(state.mode==='player'&&!opened&&!state.joinRetryTimer)scheduleJoinRetry('El servidor está tardando en responder…');
-    },5000);
-  }
-
-  function scheduleJoinRetry(message){
-    if(state.mode!=='player')return;
-    if(state.joinRetryTimer)return;
-    if(state.joinAttempts>=15){
-      $('joinRoomBtn').disabled=false;
-      notice('No se pudo encontrar la sala. Verifica el código y que el anfitrión tenga la sala abierta.','error','joinNotice');
-      return;
-    }
-    state.joinAttempts++;
-    notice(`${message} (${state.joinAttempts}/15)`,'info','joinNotice');
-    state.joinRetryTimer=setTimeout(()=>{
-      state.joinRetryTimer=null;
-      createPlayerPeerAndJoin();
-    },1200);
-  }
-
-  function attemptJoin(){
-    if(state.mode!=='player'||!state.peer||state.peer.destroyed)return;
-    if(state.hostConn){try{state.hostConn.close();}catch(e){}state.hostConn=null;}
-    const target=`adivina-${state.roomCode.toLowerCase()}`;
-    const conn=state.peer.connect(target,{reliable:true,serialization:'json',metadata:{room:state.roomCode,name:state.playerName,playerId:state.playerId}});state.hostConn=conn;
-    let opened=false;
-    const joinTimeout=setTimeout(()=>{if(!opened) scheduleJoinRetry('La sala no respondió…');},5000);
-    conn.on('open',()=>{
-      opened=true;clearTimeout(joinTimeout);state.joinAttempts=0;
-      conn.on('data',handlePlayerData);
-      try{conn.send({type:'join',name:state.playerName,playerId:state.playerId});}catch(e){scheduleJoinRetry('No se pudo enviar tus datos…');return;}
+  async function createRoom(){
+    const hostName=($('hostNameInput').value||'').trim().slice(0,30) || 'Anfitrión';
+    if(!state.categories.length){ notice('Selecciona al menos una temática.','error'); return; }
+    state.mode='host'; state.hostName=hostName; state.playerName=hostName;
+    state.roomCode=roomCode(); state.roomRef=db.ref('rooms/'+state.roomCode);
+    $('createRoomBtn').disabled=true;
+    try{
+      const existing=await state.roomRef.once('value');
+      if(existing.exists()){ state.roomCode=roomCode(); state.roomRef=db.ref('rooms/'+state.roomCode); }
+      const now=firebase.database.ServerValue.TIMESTAMP;
+      const initial={
+        hostId:state.playerId,
+        hostName,
+        createdAt:now,
+        settings:{categories:state.categories,difficulty:state.difficulty},
+        players:{[state.playerId]:{name:hostName,host:true,joinedAt:now}},
+        game:{phase:'lobby',round:0}
+      };
+      await state.roomRef.set(initial);
+      await state.roomRef.child('players/'+state.playerId).onDisconnect().remove();
+      await state.roomRef.onDisconnect().remove();
+      listenToRoom();
+      renderLobby(initial);
       show('lobby');
-      notice('Conectado. Esperando al anfitrión…','success','lobbyNotice');
-    });
-    conn.on('error',err=>{
-      console.warn('Room connection error:',err);
-      clearTimeout(joinTimeout);
-      if(!opened)scheduleJoinRetry('La sala todavía no está disponible…');
-    });
-    conn.on('close',()=>{
-      if(state.mode==='player')scheduleJoinRetry('Se perdió la conexión. Reintentando…');
-    });
+      notice('Sala creada. Comparte el código con los demás.','success','lobbyNotice');
+    }catch(err){
+      console.error('Firebase create room',err);
+      $('createRoomBtn').disabled=false;
+      notice('No se pudo crear la sala. Comprueba que Realtime Database esté creada y sus reglas permitan leer/escribir.','error');
+    }
   }
 
-  function handlePlayerData(data){
-    if(!data||typeof data!=='object')return;
-    if(data.type==='error'){notice(data.message||'No se pudo entrar.','error','joinNotice');$('joinRoomBtn').disabled=false;return;}
-    if(data.type==='hello'){state.roomCode=data.room;}
-    if(data.type==='accepted'){show('lobby');renderLobbyPlayer([{name:data.hostName,host:true},{name:state.playerName,host:false}]);notice('Conectado. Esperando al anfitrión.','success','lobbyNotice');}
-    if(data.type==='lobby'){show('lobby');renderLobbyPlayer(data.players);}
-    if(data.type==='start'){receiveStart(data);}
-    if(data.type==='newGame'){state.myAssignment=null;show('lobby');renderLobbyPlayer(data.players||[]);}
+  async function joinRoom(){
+    const code=($('joinRoomCode').value||'').trim().toUpperCase();
+    const name=($('joinName').value||'').trim().slice(0,30);
+    if(!/^[A-Z2-9]{5}$/.test(code)){notice('Escribe un código de 5 caracteres.','error','joinNotice');return;}
+    if(!name){notice('Escribe tu nombre.','error','joinNotice');return;}
+    state.mode='player';state.roomCode=code;state.playerName=name;state.roomRef=db.ref('rooms/'+code);
+    $('joinRoomBtn').disabled=true; notice('Buscando la sala…','','joinNotice');
+    try{
+      const snap=await state.roomRef.once('value');
+      if(!snap.exists()){notice('No existe una sala con ese código. Verifica el código.','error','joinNotice');$('joinRoomBtn').disabled=false;return;}
+      const data=snap.val(); const players=normalizeRoomPlayers(data);
+      if(data.game?.phase && data.game.phase!=='lobby'){notice('La partida ya comenzó. Espera a la próxima partida.','error','joinNotice');$('joinRoomBtn').disabled=false;return;}
+      if(players.length>=20 && !players.some(p=>p.id===state.playerId)){notice('La sala está llena.','error','joinNotice');$('joinRoomBtn').disabled=false;return;}
+      await state.roomRef.child('players/'+state.playerId).set({name,host:false,joinedAt:firebase.database.ServerValue.TIMESTAMP});
+      await state.roomRef.child('players/'+state.playerId).onDisconnect().remove();
+      listenToRoom();
+      show('lobby');
+      notice('Conectado. Esperando al anfitrión.','success','lobbyNotice');
+    }catch(err){
+      console.error('Firebase join room',err);
+      $('joinRoomBtn').disabled=false;
+      notice('No se pudo entrar a la sala. Revisa Realtime Database y sus reglas.','error','joinNotice');
+    }
   }
 
-  function makeAssignments(){
-    const players=hostLobbyPlayers();state.players=players.length;
-    let pool=baseDeDatos.filter(p=>state.categories.includes(p.categoria));pool=shuffle(difficultyPool(state.difficulty,pool));
-    if(pool.length<players.length){notice(`No hay suficientes personajes únicos. Hay ${pool.length} disponibles y necesitas ${players.length}.`,'error','lobbyNotice');return null;}
-    return players.map((p,i)=>({playerId:p.id,player:p.name,character:pool[i]}));
-  }
-
-  function startRoom(){
-    if(state.mode!=='host')return;
-    const assignments=makeAssignments();if(!assignments)return;
-    state.assignments=assignments;
-    const startsAt=Date.now()+700,revealAt=startsAt+5000;
-    assignments.forEach(a=>{
-      const payload={type:'start',startsAt,revealAt,assignment:a};
-      if(a.playerId==='host'){state.myAssignment=a;renderPrep(startsAt,revealAt);}
-      else {const conn=[...state.connections.values()].find(c=>c.meta?.playerId===a.playerId);if(conn?.open){try{conn.send(payload);}catch(e){}}}
-    });
-    renderPrep(startsAt,revealAt);show('prep');scheduleReveal(revealAt);
+  async function startGame(){
+    if(state.mode!=='host'||!state.roomRef)return;
+    const snap=await state.roomRef.once('value'); const data=snap.val(); if(!data)return;
+    const players=normalizeRoomPlayers(data);
+    if(players.length<2){notice('Necesitas al menos 2 jugadores para comenzar.','error','lobbyNotice');return;}
+    const cats=data.settings?.categories||state.categories; const diff=data.settings?.difficulty||state.difficulty;
+    let pool=baseDeDatos.filter(p=>cats.includes(p.categoria)); pool=shuffle(difficultyPool(diff,pool,players.length));
+    if(pool.length<players.length){notice(`No hay suficientes personajes únicos. Hay ${pool.length} disponibles y necesitas ${players.length}.`,'error','lobbyNotice');return;}
+    const assignments={};
+    players.forEach((p,i)=>{assignments[p.id]={player:p.name,character:pool[i]};});
+    const startsAt=Date.now()+5000, revealAt=startsAt+5000;
+    await state.roomRef.child('game').set({phase:'prep',round:(data.game?.round||0)+1,startsAt,revealAt,assignments});
   }
 
   function renderPrep(startsAt,revealAt){
-    setText('prepRoomCode',state.roomCode);setText('prepPlayerName',state.myAssignment?.player||state.playerName||state.hostName);
-    setText('prepMessage','Pon tu celular frente a ti con la pantalla visible para los demás.');setText('prepSub','La partida comienza en…');
-    const sec=Math.max(1,Math.ceil((revealAt-Date.now())/1000));setText('prepCountdown',sec);
+    setText('prepRoomCode',state.roomCode);
+    setText('prepPlayerName',state.myAssignment?.player||state.playerName||state.hostName);
+    setText('prepMessage','Pon tu celular frente a ti con la pantalla visible para los demás.');
+    setText('prepSub','La partida comienza en…');
+    const sec=Math.max(0,Math.ceil((revealAt-Date.now())/1000)-0); setText('prepCountdown',sec||0);
   }
-
-  function receiveStart(data){state.myAssignment=data.assignment;renderPrep(data.startsAt,data.revealAt);show('prep');scheduleReveal(data.revealAt);}
   function scheduleReveal(revealAt){
     clearCountdown();
-    const tick=()=>{const sec=Math.ceil((revealAt-Date.now())/1000);setText('prepCountdown',Math.max(0,sec));if(Date.now()>=revealAt){clearCountdown();renderReveal();show('reveal');}};
-    tick();state.countdownTimer=setInterval(tick,100);
+    const tick=()=>{
+      const sec=Math.max(0,Math.ceil((revealAt-Date.now())/1000));
+      setText('prepCountdown',sec);
+      if(Date.now()>=revealAt){clearCountdown(); show('reveal'); renderReveal();}
+    };
+    tick(); state.countdownTimer=setInterval(tick,100);
   }
   function renderReveal(){
-    const a=state.myAssignment;if(!a)return;
-    setText('revealPlayer',a.player);setText('characterName',a.character.nombre);setText('characterCategory',a.character.categoria);setText('doNotTell',a.player);
+    const a=state.myAssignment; if(!a)return;
+    setText('revealPlayer',a.player);
+    setText('characterName',a.character?.nombre||'');
+    setText('characterCategory',a.character?.categoria||'');
+    setText('doNotTell',a.player);
   }
 
-  function newGameSameRoom(){
-    clearCountdown();state.assignments=[];state.myAssignment=null;
-    if(state.mode==='host'){broadcast({type:'newGame',players:hostLobbyPlayers()});renderLobbyHost();show('lobby');notice('Nueva partida lista. Elige cuándo iniciar.','success','lobbyNotice');}
-    else {try{state.hostConn?.send({type:'readyAgain'});}catch(e){}show('lobby');notice('Esperando al anfitrión para iniciar otra partida.','','lobbyNotice');}
+  async function newGame(){
+    if(!state.roomRef)return;
+    clearCountdown(); state.myAssignment=null;
+    try{ await state.roomRef.child('game').set({phase:'lobby',round:firebase.database.ServerValue.increment(1)}); }
+    catch(err){ console.error(err); notice('No se pudo iniciar la nueva partida.','error','lobbyNotice'); }
   }
 
-  function leaveRoom(){destroyNetwork();state.mode=null;state.roomCode='';state.myAssignment=null;state.joinAttempts=0;$('joinRoomBtn').disabled=false;show('home');}
+  async function leaveRoom(){
+    clearCountdown();
+    try{
+      if(state.roomRef && state.mode==='player') await state.roomRef.child('players/'+state.playerId).remove();
+      if(state.roomRef && state.mode==='host') await state.roomRef.remove();
+    }catch(e){ console.warn(e); }
+    stopRoomListener(); state.roomRef=null; state.mode=null; state.roomCode=''; state.myAssignment=null;
+    $('joinRoomBtn').disabled=false; $('createRoomBtn').disabled=false; show('home');
+  }
 
-  async function copyRoom(){try{await navigator.clipboard.writeText(state.roomCode);notice('Código copiado.','success','lobbyNotice');}catch(e){notice(`Código: ${state.roomCode}`,'success','lobbyNotice');}}
+  async function copyRoom(){
+    try{await navigator.clipboard.writeText(state.roomCode);notice('Código copiado.','success','lobbyNotice');}
+    catch(e){notice('Código: '+state.roomCode,'success','lobbyNotice');}
+  }
 
-  $('newGameBtn').onclick=()=>{destroyNetwork();state.mode='host';state.categories=[];clearNotice();$('hostNameInput').value='';document.querySelectorAll('#categoryBox .chip').forEach(c=>c.classList.remove('selected'));$('toggleCategoriesBtn').textContent='Seleccionar todas';setDifficulty('media');show('setup');};
-  $('goJoinBtn').onclick=()=>{clearNotice();show('join');};
-  $('goCreateBtn').onclick=()=>{clearNotice();show('setup');};
-  $('backHomeBtn').onclick=()=>{destroyNetwork();show('home');};
-  $('createRoomBtn').onclick=setupHost;
-  $('joinRoomBtn').onclick=connectPlayer;
-  $('startRoomBtn').onclick=startRoom;
+  $('newGameBtn').onclick=()=>{state.mode='host';state.categories=[];$('hostNameInput').value='';document.querySelectorAll('#categoryBox .chip').forEach(c=>c.classList.remove('selected'));$('toggleCategoriesBtn').textContent='Seleccionar todas';setDifficulty('media');show('setup');};
+  $('goJoinBtn').onclick=()=>{show('join');};
+  $('goCreateBtn').onclick=()=>{show('setup');};
+  $('backHomeBtn').onclick=leaveRoom;
+  $('createRoomBtn').onclick=createRoom;
+  $('joinRoomBtn').onclick=joinRoom;
+  $('startRoomBtn').onclick=startGame;
   $('copyRoomBtn').onclick=copyRoom;
   $('leaveRoomBtn').onclick=leaveRoom;
-  $('restartBtn').onclick=newGameSameRoom;
-  $('newGameFromReveal').onclick=newGameSameRoom;
+  $('restartBtn').onclick=newGame;
+  $('newGameFromReveal').onclick=newGame;
   $('finishHomeBtn').onclick=leaveRoom;
-  $('toggleCategoriesBtn').onclick=()=>{const chips=[...document.querySelectorAll('#categoryBox .chip')];const selectAll=chips.some(c=>!c.classList.contains('selected'));chips.forEach(c=>c.classList.toggle('selected',selectAll));state.categories=selectAll?chips.map(c=>c.textContent):[];$('toggleCategoriesBtn').textContent=selectAll?'Quitar selección':'Seleccionar todas';};
+  $('toggleCategoriesBtn').onclick=()=>{const chips=[...document.querySelectorAll('#categoryBox .chip')];const selectAll=chips.some(c=>!c.classList.contains('selected'));chips.forEach(c=>c.classList.toggle('selected',selectAll));updateSelectedCategories();};
   document.querySelectorAll('.diff').forEach(b=>b.onclick=()=>setDifficulty(b.dataset.diff));
-  window.addEventListener('beforeunload',()=>{try{state.hostConn?.send({type:'leave'});}catch(e){}destroyNetwork();});
-  show('home');renderCategories();setDifficulty('media');
+  window.addEventListener('beforeunload',()=>{try{if(state.roomRef&&state.mode==='player')state.roomRef.child('players/'+state.playerId).onDisconnect().remove();}catch(e){}});
+
+  // Friendly default state
+  renderCategories(); setDifficulty('media'); show('home');
 })();
 </script>
 </body>
 </html>
+
