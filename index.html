@@ -1566,7 +1566,7 @@ button,input{font:inherit}button{cursor:pointer;border:0}.app{width:min(100%,680
 (() => {
   const screens=['home','setup','join','lobby','prep','pass','reveal','finish'];
   const baseDeDatos=window.baseDeDatos||[];
-  const state={mode:null,roomCode:'',peer:null,hostConn:null,connections:new Map(),players:[],hostName:'',playerName:'',playerId:'',categories:[],difficulty:'media',assignments:[],myAssignment:null,countdownTimer:null};
+  const state={mode:null,roomCode:'',peer:null,hostConn:null,connections:new Map(),players:[],hostName:'',playerName:'',playerId:'',categories:[],difficulty:'media',assignments:[],myAssignment:null,countdownTimer:null,joinRetryTimer:null,joinAttempts:0};
   const $=id=>document.getElementById(id);
   const setText=(id,value)=>{if($(id)) $(id).textContent=value;};
 
@@ -1578,7 +1578,7 @@ button,input{font:inherit}button{cursor:pointer;border:0}.app{width:min(100%,680
     const el=$(where); if(!el)return; el.textContent=text||''; el.className=`room-notice ${type} ${text?'show':''}`;
   }
   function clearNotice(){['roomNotice','joinNotice','lobbyNotice'].forEach(id=>{const el=$(id);if(el){el.textContent='';el.className='room-notice';}})}
-  function clearCountdown(){if(state.countdownTimer){clearInterval(state.countdownTimer);state.countdownTimer=null;}}
+  function clearCountdown(){if(state.countdownTimer){clearInterval(state.countdownTimer);state.countdownTimer=null;}if(state.joinRetryTimer){clearTimeout(state.joinRetryTimer);state.joinRetryTimer=null;}}
   function destroyNetwork(){clearCountdown();state.connections.forEach(c=>{try{c.close();}catch(e){}});state.connections.clear();if(state.hostConn){try{state.hostConn.close();}catch(e){}}state.hostConn=null;if(state.peer){try{state.peer.destroy();}catch(e){}}state.peer=null;}
   function roomCode(){const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';return Array.from({length:5},()=>chars[Math.floor(Math.random()*chars.length)]).join('');}
   function shuffle(arr){const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
@@ -1638,14 +1638,57 @@ button,input{font:inherit}button{cursor:pointer;border:0}.app{width:min(100%,680
     const code=$('joinRoomCode').value.trim().toUpperCase(),name=$('joinName').value.trim().slice(0,30);
     if(!/^[A-Z2-9]{5}$/.test(code))return notice('Escribe un código de 5 caracteres.','error','joinNotice');
     if(!name)return notice('Escribe tu nombre.','error','joinNotice');
-    destroyNetwork();state.mode='player';state.roomCode=code;state.playerName=name;state.playerId=`p-${Math.random().toString(36).slice(2,10)}`;$('joinRoomBtn').disabled=true;notice('Conectando…','','joinNotice');
-    state.peer=new Peer({debug:0});
-    state.peer.on('open',id=>{
-      const conn=state.peer.connect(`adivina-${code.toLowerCase()}`,{reliable:true});state.hostConn=conn;
-      conn.on('open',()=>{conn.send({type:'join',name,playerId:state.playerId});conn.on('data',handlePlayerData);conn.on('close',()=>notice('Se perdió la conexión con el anfitrión.','error','lobbyNotice'));});
-      conn.on('error',()=>notice('No se pudo entrar a esa sala.','error','joinNotice'));
+    destroyNetwork();state.mode='player';state.roomCode=code;state.playerName=name;state.playerId=`p-${Math.random().toString(36).slice(2,10)}`;state.joinAttempts=0;
+    $('joinRoomBtn').disabled=true;notice('Conectando con la sala…','','joinNotice');
+    state.peer=new Peer(undefined,{debug:1});
+    state.peer.on('open',()=>attemptJoin());
+    state.peer.on('disconnected',()=>{try{state.peer.reconnect();}catch(e){}});
+    state.peer.on('error',err=>{
+      console.error('PeerJS error:',err);
+      const t=err?.type||'';
+      if(t==='peer-unavailable'){
+        scheduleJoinRetry('La sala todavía no responde. Intentando de nuevo…');
+        return;
+      }
+      if(t==='network'){
+        scheduleJoinRetry('Problema de red. Intentando de nuevo…');
+        return;
+      }
+      $('joinRoomBtn').disabled=false;
+      notice(`No se pudo conectar (${t||'error de conexión'}). Comprueba el código e internet.`,'error','joinNotice');
     });
-    state.peer.on('error',()=>{$('joinRoomBtn').disabled=false;notice('No se pudo conectar. Revisa el código e internet.','error','joinNotice');});
+  }
+
+  function scheduleJoinRetry(message){
+    if(state.mode!=='player'||!state.peer)return;
+    if(state.joinAttempts>=8){
+      $('joinRoomBtn').disabled=false;
+      notice('No se encontró la sala. Comprueba el código y que el anfitrión siga dentro del lobby.','error','joinNotice');
+      return;
+    }
+    state.joinAttempts++;
+    notice(`${message} (${state.joinAttempts}/8)`,'info','joinNotice');
+    if(state.joinRetryTimer)clearTimeout(state.joinRetryTimer);
+    state.joinRetryTimer=setTimeout(attemptJoin,1200);
+  }
+
+  function attemptJoin(){
+    if(state.mode!=='player'||!state.peer)return;
+    if(state.hostConn){try{state.hostConn.close();}catch(e){}state.hostConn=null;}
+    const target=`adivina-${state.roomCode.toLowerCase()}`;
+    const conn=state.peer.connect(target,{reliable:true,serialization:'json'});state.hostConn=conn;
+    let opened=false;
+    conn.on('open',()=>{
+      opened=true;state.joinAttempts=0;
+      conn.send({type:'join',name:state.playerName,playerId:state.playerId});
+      conn.on('data',handlePlayerData);
+      conn.on('close',()=>{if(state.mode==='player')notice('Se perdió la conexión con el anfitrión.','error','lobbyNotice');});
+      notice('Conectado. Esperando al anfitrión…','success','joinNotice');
+    });
+    conn.on('error',err=>{
+      console.warn('Room connection error:',err);
+      if(!opened)scheduleJoinRetry('La sala aún no está disponible.');
+    });
   }
 
   function handlePlayerData(data){
@@ -1701,7 +1744,7 @@ button,input{font:inherit}button{cursor:pointer;border:0}.app{width:min(100%,680
     else {try{state.hostConn?.send({type:'readyAgain'});}catch(e){}show('lobby');notice('Esperando al anfitrión para iniciar otra partida.','','lobbyNotice');}
   }
 
-  function leaveRoom(){destroyNetwork();state.mode=null;state.roomCode='';state.myAssignment=null;$('joinRoomBtn').disabled=false;show('home');}
+  function leaveRoom(){destroyNetwork();state.mode=null;state.roomCode='';state.myAssignment=null;state.joinAttempts=0;$('joinRoomBtn').disabled=false;show('home');}
 
   async function copyRoom(){try{await navigator.clipboard.writeText(state.roomCode);notice('Código copiado.','success','lobbyNotice');}catch(e){notice(`Código: ${state.roomCode}`,'success','lobbyNotice');}}
 
