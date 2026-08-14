@@ -3,242 +3,1725 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#0b1020">
+  <meta name="theme-color" content="#111827">
   <meta name="description" content="Adivina Quién — reparte personajes secretos para jugar presencialmente con amigos.">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Adivina Quién">
-  <link rel="manifest" href="manifest.json">
   <title>Adivina Quién</title>
   <style>
-    :root {
-      --bg: #080d19;
-      --panel: #101827;
-      --text: #f8fafc;
-      --muted: #94a3b8;
-      --accent: #8b5cf6;
-      --accent-2: #06b6d4;
-      --danger: #fb7185;
-      --ok: #34d399;
-      --border: rgba(255,255,255,.09);
-      --shadow: 0 24px 70px rgba(0,0,0,.36);
-      --radius: 24px;
-    }
-    * { box-sizing: border-box; }
-    html, body { margin: 0; min-height: 100%; }
-    body {
-      min-height: 100dvh;
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background:
-        radial-gradient(circle at 15% 10%, rgba(139,92,246,.18), transparent 30%),
-        radial-gradient(circle at 85% 20%, rgba(6,182,212,.14), transparent 28%),
-        var(--bg);
-      color: var(--text);
-      overscroll-behavior: none;
-    }
-    body.playing { background: var(--bg); }
-    button, input { font: inherit; }
-    button { cursor: pointer; border: 0; }
-    .app { width: min(100%, 720px); min-height: 100dvh; margin: 0 auto; padding: 18px 16px 28px; display: flex; flex-direction: column; }
-    .topbar { display: flex; align-items: center; justify-content: space-between; min-height: 46px; }
-    .brand { font-weight: 900; letter-spacing: .05em; font-size: 14px; }
-    .step { font-size: 12px; color: var(--muted); background: rgba(255,255,255,.06); padding: 7px 10px; border-radius: 999px; }
-    .screen { display: none; flex: 1; align-items: center; }
-    .screen.active { display: flex; }
-    .card { width: 100%; background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02)); border: 1px solid var(--border); box-shadow: var(--shadow); border-radius: var(--radius); padding: 22px; backdrop-filter: blur(14px); }
-    .hero { padding: 28px 20px; text-align: center; }
-    .logo { font-size: clamp(42px, 11vw, 76px); line-height: .9; font-weight: 1000; letter-spacing: -.065em; margin: 8px 0 16px; background: linear-gradient(100deg, #fff 20%, #c4b5fd 52%, #67e8f9 85%); -webkit-background-clip: text; background-clip: text; color: transparent; }
-    .subtitle { max-width: 500px; margin: 0 auto 28px; color: #cbd5e1; font-size: 16px; line-height: 1.55; }
-    .btn { width: 100%; padding: 16px 18px; border-radius: 16px; font-weight: 800; color: #fff; background: linear-gradient(135deg, var(--accent), #6d28d9); box-shadow: 0 12px 28px rgba(124,58,237,.28); transition: transform .15s ease, filter .15s ease; }
-    .btn:active { transform: scale(.985); }
-    .btn:hover { filter: brightness(1.05); }
-    .btn.secondary { background: rgba(255,255,255,.07); box-shadow: none; border: 1px solid var(--border); }
-    .btn.ghost { background: transparent; box-shadow: none; color: #cbd5e1; border: 1px solid var(--border); }
-    .btn.danger { background: linear-gradient(135deg, #f43f5e, #be123c); }
-    .btn.success { background: linear-gradient(135deg, #10b981, #047857); }
-    .actions { display: grid; gap: 10px; margin-top: 18px; }
-    .title { font-size: 28px; line-height: 1.08; margin: 0 0 8px; letter-spacing: -.03em; }
-    .muted { color: var(--muted); line-height: 1.45; }
-    .section { margin-top: 20px; }
-    .label { display: block; font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #94a3b8; margin: 0 0 9px; }
-    .counter { display: grid; grid-template-columns: 56px 1fr 56px; gap: 10px; align-items: center; }
-    .counter button { height: 52px; border-radius: 15px; background: rgba(255,255,255,.07); color: #fff; border: 1px solid var(--border); font-size: 25px; }
-    .counter-value { height: 52px; border-radius: 15px; background: rgba(255,255,255,.05); display: grid; place-items: center; font-size: 22px; font-weight: 900; border: 1px solid var(--border); }
-    .names { display: grid; gap: 10px; max-height: 38dvh; overflow: auto; padding-right: 2px; }
-    .input { width: 100%; background: rgba(255,255,255,.055); color: #fff; border: 1px solid var(--border); padding: 14px 15px; border-radius: 14px; outline: none; }
-    .input:focus { border-color: rgba(139,92,246,.75); box-shadow: 0 0 0 3px rgba(139,92,246,.12); }
-    .chips { display: flex; flex-wrap: wrap; gap: 9px; }
-    .chip { padding: 11px 13px; border-radius: 999px; background: rgba(255,255,255,.055); color: #cbd5e1; border: 1px solid var(--border); font-weight: 700; font-size: 13px; }
-    .chip.selected { background: rgba(139,92,246,.22); border-color: rgba(167,139,250,.65); color: #fff; }
-    .difficulty { display: grid; grid-template-columns: repeat(3,1fr); gap: 9px; }
-    .diff { padding: 14px 10px; border-radius: 15px; background: rgba(255,255,255,.055); border: 1px solid var(--border); color: #cbd5e1; font-weight: 800; }
-    .diff.selected { background: linear-gradient(135deg, rgba(6,182,212,.2), rgba(139,92,246,.2)); border-color: rgba(103,232,249,.55); color: #fff; }
-    .info { padding: 13px 14px; border-radius: 15px; background: rgba(6,182,212,.08); border: 1px solid rgba(103,232,249,.18); color: #c8f8ff; font-size: 13px; line-height: 1.45; }
-    .center { text-align: center; }
-    .turn-name { font-size: clamp(38px, 10vw, 60px); font-weight: 1000; letter-spacing: -.05em; margin: 10px 0; overflow-wrap: anywhere; }
-    .privacy { font-size: 18px; font-weight: 900; line-height: 1.25; }
-    .warn { font-size: 15px; color: #fda4af; margin-top: 8px; }
-    .tag { display: inline-flex; align-items: center; gap: 7px; padding: 8px 11px; border-radius: 999px; background: rgba(255,255,255,.07); color: #dbeafe; border: 1px solid var(--border); font-size: 12px; font-weight: 800; }
-    .reveal-box { background: radial-gradient(circle at 50% 35%, rgba(139,92,246,.22), transparent 44%), rgba(255,255,255,.03); border: 1px solid var(--border); padding: 20px 18px 24px; border-radius: 22px; text-align: center; margin: 16px 0; }
-    .character-photo { position: relative; width: min(100%, 300px); aspect-ratio: 1 / 1; margin: 0 auto 18px; border-radius: 22px; overflow: hidden; background: linear-gradient(145deg, rgba(139,92,246,.24), rgba(6,182,212,.14)); border: 1px solid rgba(255,255,255,.1); }
-    .character-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .character-photo img.loading { opacity: 0; }
-    .photo-fallback { width: 100%; height: 100%; display: grid; place-items: center; font-size: 72px; font-weight: 1000; letter-spacing: -.05em; background: radial-gradient(circle at 50% 35%, rgba(139,92,246,.3), transparent 52%); }
-    .photo-hint { margin-top: 10px; font-size: 11px; color: #64748b; }
-    .character-name { font-size: clamp(36px, 9vw, 62px); font-weight: 1000; letter-spacing: -.05em; margin: 8px 0; overflow-wrap: anywhere; }
-    .character-meta { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 10px; }
-    .progress { height: 7px; background: rgba(255,255,255,.06); border-radius: 999px; overflow: hidden; margin: 14px 0 22px; }
-    .progress > div { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width .3s ease; }
-    .summary { display: grid; gap: 8px; margin-top: 18px; }
-    .summary-row { padding: 12px 13px; border-radius: 13px; background: rgba(255,255,255,.045); border: 1px solid var(--border); display: flex; justify-content: space-between; gap: 12px; }
-    .small { font-size: 12px; color: var(--muted); }
-    .footer { padding-top: 12px; text-align: center; color: #64748b; font-size: 11px; }
-    .playing-card { min-height: 60dvh; display: grid; place-items: center; }
-    .big-check { width: 84px; height: 84px; border-radius: 50%; display: grid; place-items: center; font-size: 42px; margin: 0 auto 18px; background: rgba(52,211,153,.12); border: 1px solid rgba(52,211,153,.25); }
-    @media (min-width: 700px) { .app { padding: 26px 20px; } .card { padding: 28px; } .hero { padding: 44px 34px; } }
+:root{--bg:#101214;--panel:#181a1e;--text:#f3f4f6;--muted:#9aa0aa;--border:rgba(255,255,255,.09);--shadow:0 18px 50px rgba(0,0,0,.25);--radius:18px}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:linear-gradient(180deg,#0e1012 0%,#131519 100%);color:var(--text)}body{min-height:100dvh}
+button,input{font:inherit}button{cursor:pointer;border:0}.app{width:min(100%,680px);margin:0 auto;min-height:100dvh;padding:18px 16px 28px;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;justify-content:space-between;min-height:42px}.brand{font-weight:800;letter-spacing:.08em;font-size:12px;color:#d7dbe1}.step{font-size:11px;color:#8e949d;background:#1b1e23;padding:6px 9px;border-radius:999px;border:1px solid var(--border)}
+.screen{display:none;flex:1;align-items:center}.screen.active{display:flex}.card{width:100%;background:rgba(25,27,31,.96);border:1px solid var(--border);box-shadow:var(--shadow);border-radius:var(--radius);padding:22px}.hero{padding:34px 22px;text-align:center}
+.logo{font-size:clamp(46px,12vw,72px);line-height:.88;font-weight:950;letter-spacing:-.06em;margin:8px 0 18px;color:#f2f3f5}.subtitle{max-width:460px;margin:0 auto 28px;color:#aeb4bd;font-size:15px;line-height:1.55}
+.btn{width:100%;padding:15px 18px;border-radius:13px;font-weight:800;color:#111;background:#f1f2f4;box-shadow:none;transition:transform .12s ease,background .12s ease}.btn:active{transform:scale(.985)}.btn:hover{background:#fff}.btn.secondary{background:#202329;color:#dfe2e6;border:1px solid var(--border)}.btn.danger{background:#a63f4c;color:#fff}.btn.success{background:#2d7b5c;color:#fff}
+.actions{display:grid;gap:10px;margin-top:18px}.title{font-size:27px;line-height:1.08;margin:0 0 8px;letter-spacing:-.03em}.muted{color:var(--muted);line-height:1.45}.tiny{font-size:12px;margin:3px 0 0}
+.section{margin-top:20px}.label{display:block;font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:#8e949d;margin:0 0 9px}.counter{display:grid;grid-template-columns:52px 1fr 52px;gap:9px;align-items:center}.counter button{height:50px;border-radius:13px;background:#202329;color:#fff;border:1px solid var(--border);font-size:22px}.counter-value{height:50px;border-radius:13px;background:#1d2025;display:grid;place-items:center;font-size:21px;font-weight:850;border:1px solid var(--border)}
+.names{display:grid;gap:9px;max-height:40dvh;overflow:auto;padding-right:2px}.input{width:100%;background:#1d2025;color:#f5f6f7;border:1px solid var(--border);padding:13px 14px;border-radius:12px;outline:none}.input:focus{border-color:#a8adb5;box-shadow:0 0 0 3px rgba(255,255,255,.05)}
+.chips{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.chip{padding:10px 11px;border-radius:11px;background:#1c1f24;color:#c8cdd4;border:1px solid var(--border);font-weight:700;font-size:12px;text-align:left}.chip.selected{background:#eceef1;border-color:#eceef1;color:#15171a}.text-action{margin-top:8px;padding:0;background:none;color:#aeb4bc;font-size:12px;font-weight:700}
+.compact-row{display:flex;justify-content:space-between;align-items:center;gap:12px}.static-badge{font-size:10px;font-weight:800;letter-spacing:.08em;padding:8px 9px;border:1px solid var(--border);border-radius:999px;color:#aeb4bc;white-space:nowrap}.info{padding:12px 13px;border-radius:12px;background:#1b1e23;border:1px solid var(--border);color:#aeb4bc;font-size:12px;line-height:1.45}
+.center{text-align:center}.turn-name{font-size:clamp(36px,10vw,56px);font-weight:950;letter-spacing:-.05em;margin:10px 0}.privacy{font-size:17px;font-weight:850;line-height:1.2}.warn{font-size:14px;color:#d98a95;margin-top:8px}.personaje{font-size:clamp(36px,9vw,62px);font-weight:950;letter-spacing:-.05em;margin:20px 0 8px}
+.tag{display:inline-flex;align-items:center;gap:7px;padding:7px 10px;border-radius:999px;background:#202329;color:#bfc5cd;border:1px solid var(--border);font-size:11px;font-weight:800}.reveal-box{background:#15171a;border:1px solid var(--border);padding:27px 18px;border-radius:16px;text-align:center;margin:15px 0}.timer{font-size:11px;color:#7f8690;margin-top:13px}
+.progress{height:5px;background:#202329;border-radius:999px;overflow:hidden;margin:13px 0 21px}.progress>div{height:100%;background:#dfe3e8;transition:width .25s ease}.summary{display:grid;gap:7px;margin-top:18px}.summary-row{padding:11px 12px;border-radius:11px;background:#1d2025;border:1px solid var(--border);display:flex;justify-content:space-between;gap:12px}.small{font-size:11px;color:#7f8690}.footer{padding-top:12px;text-align:center;color:#606772;font-size:10px}
+@media (min-width:700px){.app{padding:24px 20px}.card{padding:28px}.hero{padding:44px 34px}}
+.room-notice{display:none;margin-top:12px;padding:11px 12px;border-radius:12px;font-size:12px;line-height:1.4;border:1px solid var(--border);background:#1b1e23;color:#aeb4bc}.room-notice.show{display:block}.room-notice.success{color:#d8f4e6}.room-notice.error{color:#f5c9ce}.room-code-input{text-align:center;font-weight:900;letter-spacing:.16em;text-transform:uppercase}.room-code-big{font-size:36px;font-weight:950;letter-spacing:.16em}.copy-room{padding:10px 12px;border-radius:10px;background:#202329;color:#e6e9ed;border:1px solid var(--border);font-size:11px;font-weight:800}.lobby-list{display:grid;gap:8px;margin-top:16px}.lobby-player{display:grid;grid-template-columns:24px 1fr auto;align-items:center;gap:8px;padding:12px;border:1px solid var(--border);border-radius:12px;background:#1d2025}.player-icon{font-size:16px}.lobby-role{font-size:10px;color:#808792;text-transform:uppercase;letter-spacing:.08em}.lobby-count{margin-top:10px;font-size:12px;color:#8e949d;font-weight:800}.waiting-host{text-align:center;margin-top:14px;color:#8e949d;font-size:12px}.prep-card{padding:30px 20px 28px}.prep-small{font-size:11px;color:#7f8690;letter-spacing:.14em;font-weight:850;margin-top:24px}.prep-name{font-size:clamp(32px,10vw,52px);font-weight:950;letter-spacing:-.05em;margin-top:5px}.prep-title{font-size:clamp(34px,9vw,52px);letter-spacing:-.05em;margin:24px 0 8px}.prep-message{max-width:430px;margin:0 auto;color:#c3c8d0;font-size:17px;line-height:1.45}.prep-countdown{font-size:clamp(90px,29vw,160px);font-weight:950;line-height:.9;letter-spacing:-.08em;margin:22px 0 14px;animation:pulse .95s ease infinite}.prep-sub{margin:0;color:#8d949e;font-size:13px}.reveal-live{animation:fadeUp .45s ease both}.reveal-note{margin-top:8px}.reveal-live .actions{margin-top:18px}.reveal-live .btn{max-width:360px;margin:0 auto}.copy-room:active{transform:scale(.98)}
+
+
+.turn-card{padding:24px 20px 22px}
+.turn-label{font-size:12px;font-weight:850;letter-spacing:.12em;color:#8e949d;margin-top:18px}
+.turn-instruction{max-width:460px;margin:0 auto 20px}
+.countdown-wrap{display:none;margin:18px auto 4px;max-width:430px;padding:20px 16px 18px;border-radius:18px;background:#141619;border:1px solid var(--border)}
+.countdown-wrap.active{display:block;animation:fadeUp .25s ease both}
+.countdown-message{font-size:clamp(18px,4.8vw,24px);font-weight:850;letter-spacing:-.025em}
+.countdown{font-size:clamp(78px,24vw,132px);font-weight:950;line-height:.9;letter-spacing:-.07em;margin-top:14px;animation:pulse .95s ease infinite}
+.reveal-card{padding:22px 18px 20px}
+.reveal-header{margin-bottom:10px;text-align:left}
+.reveal-player-name{font-size:clamp(28px,8vw,44px);font-weight:950;letter-spacing:-.05em;line-height:.95;margin-top:5px}
+.reveal-box-main{padding:30px 16px 28px;margin:14px 0 16px;min-height:240px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.reveal-kicker{font-size:12px;letter-spacing:.12em;font-weight:900;color:#8e949d}
+.reveal-card .personaje{font-size:clamp(42px,11vw,74px);line-height:.96;max-width:100%;overflow-wrap:anywhere;margin:16px 0 14px}
+.reveal-helper{margin:0;color:#9aa0aa;font-size:14px;line-height:1.45}
+.reveal-helper strong{color:#f2f3f5}
+@keyframes pulse{0%,100%{transform:scale(1);opacity:.9}50%{transform:scale(1.04);opacity:1}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@media (max-width:380px){.card{padding:18px 14px}.reveal-box-main{min-height:210px;padding:24px 12px}.countdown-wrap{padding:16px 12px}}
+
   </style>
 </head>
 <body>
-  <div class="app">
-    <div class="topbar">
-      <div class="brand">ADIVINA QUIÉN</div>
-      <div class="step" id="stepBadge"></div>
+<div class="app">
+  <div class="topbar"><div class="brand">ADIVINA QUIÉN</div><div class="step" id="stepBadge"></div></div>
+
+  <section class="screen active" id="home">
+    <div class="card hero">
+      <div class="logo">ADIVINA<br>QUIÉN</div>
+      <p class="subtitle">Crea una sala, comparte el código y juega con cada celular mirando hacia el grupo.</p>
+      <div class="actions">
+        <button class="btn" id="newGameBtn">CREAR SALA</button>
+        <button class="btn secondary" id="goJoinBtn">UNIRME A UNA SALA</button>
+      </div>
+      <div class="footer">Una sala · Varios celulares · Personajes sincronizados</div>
     </div>
+  </section>
 
-    <section class="screen active" id="home">
-      <div class="card hero">
-        <div class="logo">ADIVINA<br>QUIÉN</div>
-        <p class="subtitle">Descubre quién eres antes de que tus amigos te lo hagan demasiado fácil.</p>
-        <div class="actions"><button class="btn" id="newGameBtn">NUEVA PARTIDA</button></div>
-        <div class="footer">Sin cuentas · Un solo celular · Juego presencial</div>
+  <section class="screen" id="setup">
+    <div class="card">
+      <div class="tag">👑 ANFITRIÓN</div>
+      <h1 class="title" style="margin-top:16px">Crea tu sala</h1>
+      <p class="muted">Elige tu nombre y las temáticas. Los demás jugadores se unirán con un código.</p>
+      <div class="section">
+        <span class="label">Tu nombre</span>
+        <input class="input" id="hostNameInput" maxlength="30" placeholder="Ej. Luis">
       </div>
-    </section>
-
-    <section class="screen" id="setup">
-      <div class="card">
-        <h1 class="title">Configura la partida</h1>
-        <p class="muted">Elige cuántos juegan, escribe sus nombres y selecciona las temáticas.</p>
-
-        <div class="section">
-          <span class="label">Cantidad de jugadores</span>
-          <div class="counter">
-            <button id="minusPlayers" type="button">−</button>
-            <div class="counter-value" id="playerCount">5</div>
-            <button id="plusPlayers" type="button">+</button>
-          </div>
-        </div>
-
-        <div class="section"><span class="label">Nombres</span><div class="names" id="namesBox"></div></div>
-        <div class="section"><span class="label">Temáticas</span><div class="chips" id="categoryBox"></div></div>
-
-        <div class="section">
-          <span class="label">Dificultad</span>
-          <div class="difficulty">
-            <button class="diff" data-diff="facil" type="button">Fácil</button>
-            <button class="diff" data-diff="media" type="button">Media</button>
-            <button class="diff" data-diff="dificil" type="button">Difícil</button>
-          </div>
-        </div>
-
-        <div class="section info">Las fotos aparecen solo en la pantalla secreta, cuando corresponde. Al ocultar el personaje se eliminan de la pantalla inmediatamente.</div>
-        <div class="actions">
-          <button class="btn" id="startGameBtn" type="button">GENERAR PERSONAJES</button>
-          <button class="btn secondary" id="backHomeBtn" type="button">VOLVER</button>
+      <div class="section">
+        <span class="label">Temáticas</span>
+        <div class="chips" id="categoryBox"></div>
+        <button class="text-action" id="toggleCategoriesBtn" type="button">Seleccionar todas</button>
+      </div>
+      <div class="section">
+        <span class="label">Dificultad</span>
+        <div class="chips">
+          <button class="chip diff" data-diff="facil" type="button">Fácil</button>
+          <button class="chip diff" data-diff="media" type="button">Media</button>
+          <button class="chip diff" data-diff="dificil" type="button">Difícil</button>
         </div>
       </div>
-    </section>
-
-    <section class="screen" id="pass">
-      <div class="card center">
-        <div class="progress"><div id="progressBar"></div></div>
-        <div class="small" id="roundText"></div>
-        <h2 class="privacy">AHORA ES EL TURNO DE</h2>
-        <div class="turn-name" id="turnName"></div>
-        <p class="muted">Pasa el celular a esta persona.</p>
-        <p class="warn">Los demás no deben mirar todavía.</p>
-        <div class="actions"><button class="btn" id="readyBtn" type="button">ESTOY LISTO</button></div>
+      <div class="actions">
+        <button class="btn" id="createRoomBtn">CREAR SALA</button>
+        <button class="btn secondary" id="backHomeBtn">VOLVER</button>
       </div>
-    </section>
+      <div class="room-notice" id="roomNotice"></div>
+    </div>
+  </section>
 
-    <section class="screen" id="warning">
-      <div class="card center">
-        <div class="tag">🔒 REPARTO SECRETO</div>
-        <h1 class="title" style="margin-top:18px">⚠️ ATENCIÓN</h1>
-        <div class="privacy" id="warningName"></div>
-        <p class="muted">El jugador debe mirar hacia otro lado.<br><strong>Los demás jugadores deben mirar la pantalla.</strong></p>
-        <div class="actions"><button class="btn danger" id="showBtn" type="button">MOSTRAR PERSONAJE</button></div>
+  <section class="screen" id="join">
+    <div class="card">
+      <div class="tag">🟢 JUGADOR</div>
+      <h1 class="title" style="margin-top:16px">Entrar a una sala</h1>
+      <p class="muted">Usa el código que te dio el anfitrión.</p>
+      <div class="section">
+        <span class="label">Código de sala</span>
+        <input class="input room-code-input" id="joinRoomCode" maxlength="5" placeholder="K7F2Q" autocomplete="off" spellcheck="false">
       </div>
-    </section>
-
-    <section class="screen" id="reveal">
-      <div class="card center">
-        <div class="tag">👀 SOLO PARA LOS DEMÁS</div>
-        <div class="reveal-box">
-          <div class="small">PERSONAJE DE</div>
-          <div class="small" id="revealPlayer"></div>
-          <div class="character-photo">
-            <img id="characterImage" alt="" loading="eager">
-            <div class="photo-fallback" id="characterImageFallback"></div>
-          </div>
-          <div class="character-name" id="characterName"></div>
-          <div class="character-meta">
-            <div class="tag" id="characterCategory"></div>
-            <div class="tag" id="characterDifficulty"></div>
-          </div>
-          <div class="photo-hint">La imagen se busca automáticamente cuando no existe una foto propia en la base.</div>
-        </div>
-        <div class="privacy">NO SE LO DIGAS A <span id="doNotTell"></span></div>
-        <div class="actions"><button class="btn success" id="hideBtn" type="button">OCULTAR PERSONAJE</button></div>
+      <div class="section">
+        <span class="label">Tu nombre</span>
+        <input class="input" id="joinName" maxlength="30" placeholder="Ej. Diego">
       </div>
-    </section>
-
-    <section class="screen" id="next">
-      <div class="card center">
-        <div class="tag">✓ PERSONAJE OCULTO</div>
-        <h1 class="title" style="margin-top:18px">SIGUIENTE</h1>
-        <div class="turn-name" id="nextName"></div>
-        <p class="muted">Pasa el celular al siguiente jugador.</p>
-        <div class="actions"><button class="btn" id="continueBtn" type="button">CONTINUAR</button></div>
+      <div class="actions">
+        <button class="btn" id="joinRoomBtn">ENTRAR A LA SALA</button>
+        <button class="btn secondary" id="goCreateBtn">CREAR UNA SALA</button>
       </div>
-    </section>
+      <div class="room-notice" id="joinNotice"></div>
+    </div>
+  </section>
 
-    <section class="screen" id="finish">
-      <div class="card center">
-        <div class="tag">🎉 PARTIDA PREPARADA</div>
-        <h1 class="title" style="font-size:40px;margin-top:18px">¡TODOS LISTOS!</h1>
-        <p class="muted">Todos conocen los personajes. Dejen el celular y comiencen a jugar.</p>
-        <div class="summary" id="summaryBox"></div>
-        <div class="actions">
-          <button class="btn success" id="playBtn" type="button">EMPEZAR A JUGAR</button>
-          <button class="btn" id="playAgainBtn" type="button">VOLVER A JUGAR</button>
-          <button class="btn secondary" id="newSetupBtn" type="button">NUEVA CONFIGURACIÓN</button>
-        </div>
-        <div class="footer">La app termina aquí. Las preguntas y respuestas son presenciales.</div>
-      </div>
-    </section>
-
-    <section class="screen" id="playing">
-      <div class="card center playing-card">
+  <section class="screen" id="lobby">
+    <div class="card">
+      <div class="compact-row">
         <div>
-          <div class="big-check">✓</div>
-          <h1 class="title" style="font-size:38px">¡A JUGAR!</h1>
-          <p class="muted">Dejen el celular y empiecen las preguntas.</p>
-          <div class="actions">
-            <button class="btn" id="backToStartBtn" type="button">VOLVER AL INICIO</button>
-            <button class="btn secondary" id="newSetupBtn2" type="button" hidden>NUEVA CONFIGURACIÓN</button>
-          </div>
+          <span class="label">SALA</span>
+          <div class="room-code-big" id="roomCodeValue">K7F2Q</div>
         </div>
+        <button class="copy-room" id="copyRoomBtn" type="button">COPIAR</button>
       </div>
-    </section>
-  </div>
+      <div class="section">
+        <h1 class="title">Lobby</h1>
+        <p class="muted">Comparte el código y espera a que entren todos.</p>
+      </div>
+      <div class="lobby-list" id="lobbyList"></div>
+      <div class="lobby-count" id="lobbyCount">0 jugadores</div>
+      <div class="info">Todos deben tener su propio celular. Cuando el anfitrión inicie, los personajes se muestran simultáneamente en cada dispositivo.</div>
+      <div class="actions">
+        <button class="btn" id="startRoomBtn">INICIAR PARTIDA</button>
+        <button class="btn secondary" id="leaveRoomBtn">SALIR DE LA SALA</button>
+      </div>
+      <div class="waiting-host" id="waitingHost">Esperando al anfitrión…</div>
+      <div class="room-notice" id="lobbyNotice"></div>
+    </div>
+  </section>
 
-  <script src="baseDeDatos.js"></script>
-  <script src="app.js"></script>
-  <script>
-    if ("serviceWorker" in navigator) {
-      window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js").catch(() => {}));
-    }
+  <section class="screen" id="prep">
+    <div class="card center prep-card">
+      <div class="tag">SALA <span id="prepRoomCode"></span></div>
+      <div class="prep-small">TU NOMBRE</div>
+      <div class="prep-name" id="prepPlayerName"></div>
+      <h1 class="prep-title">PREPÁRATE</h1>
+      <p class="prep-message" id="prepMessage">Pon tu celular frente a ti con la pantalla visible para los demás.</p>
+      <div class="prep-countdown" id="prepCountdown">5</div>
+      <p class="prep-sub" id="prepSub">La partida comienza en unos segundos.</p>
+    </div>
+  </section>
+
+  <section class="screen" id="pass">
+    <div class="card center">
+      <div class="tag">PARTIDA INICIADA</div>
+      <h1 class="title" style="margin-top:18px">Mira hacia el grupo</h1>
+      <p class="muted">El personaje aparecerá en breve.</p>
+    </div>
+  </section>
+
+  <section class="screen" id="reveal">
+    <div class="card center reveal-card reveal-live">
+      <div class="compact-row reveal-header">
+        <div>
+          <div class="small">TURNO DE</div>
+          <div class="reveal-player-name" id="revealPlayer"></div>
+        </div>
+        <div class="tag">👀 PARA EL GRUPO</div>
+      </div>
+      <div class="reveal-box reveal-box-main">
+        <div class="small reveal-kicker">SU PERSONAJE ES</div>
+        <div class="personaje" id="characterName"></div>
+        <div class="tag" id="characterCategory"></div>
+      </div>
+      <p class="reveal-helper">Todos pueden verlo, menos <strong id="doNotTell"></strong>.</p>
+      <p class="muted reveal-note">Haz preguntas para descubrir quién eres.</p>
+      <div class="actions">
+        <button class="btn" id="newGameFromReveal">NUEVA PARTIDA</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="screen" id="finish">
+    <div class="card center">
+      <div class="tag">✓ SALA FINALIZADA</div>
+      <h1 class="title" id="finishTitle" style="margin-top:18px">¡LISTOS!</h1>
+      <p class="muted" id="finishText">Pueden jugar con las preguntas y respuestas de manera presencial.</p>
+      <div class="summary" id="summaryBox"></div>
+      <div class="actions">
+        <button class="btn" id="restartBtn">NUEVA PARTIDA</button>
+        <button class="btn secondary" id="finishHomeBtn">SALIR</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+    window.baseDeDatos = [
+  {
+    "id": 1,
+    "nombre": "Homero Simpson",
+    "categoria": "Los Simpson",
+    "dificultad": "facil"
+  },
+  {
+    "id": 2,
+    "nombre": "Marge Simpson",
+    "categoria": "Los Simpson",
+    "dificultad": "facil"
+  },
+  {
+    "id": 3,
+    "nombre": "Bart Simpson",
+    "categoria": "Los Simpson",
+    "dificultad": "facil"
+  },
+  {
+    "id": 4,
+    "nombre": "Lisa Simpson",
+    "categoria": "Los Simpson",
+    "dificultad": "facil"
+  },
+  {
+    "id": 5,
+    "nombre": "Maggie Simpson",
+    "categoria": "Los Simpson",
+    "dificultad": "facil"
+  },
+  {
+    "id": 6,
+    "nombre": "Sr. Burns",
+    "categoria": "Los Simpson",
+    "dificultad": "facil"
+  },
+  {
+    "id": 7,
+    "nombre": "Ned Flanders",
+    "categoria": "Los Simpson",
+    "dificultad": "facil"
+  },
+  {
+    "id": 8,
+    "nombre": "Moe Szyslak",
+    "categoria": "Los Simpson",
+    "dificultad": "facil"
+  },
+  {
+    "id": 9,
+    "nombre": "Krusty el Payaso",
+    "categoria": "Los Simpson",
+    "dificultad": "facil"
+  },
+  {
+    "id": 10,
+    "nombre": "Milhouse Van Houten",
+    "categoria": "Los Simpson",
+    "dificultad": "facil"
+  },
+  {
+    "id": 11,
+    "nombre": "Jefe Gorgory",
+    "categoria": "Los Simpson",
+    "dificultad": "facil"
+  },
+  {
+    "id": 12,
+    "nombre": "Apu Nahasapeemapetilon",
+    "categoria": "Los Simpson",
+    "dificultad": "facil"
+  },
+  {
+    "id": 13,
+    "nombre": "Nelson Muntz",
+    "categoria": "Los Simpson",
+    "dificultad": "facil"
+  },
+  {
+    "id": 14,
+    "nombre": "Director Skinner",
+    "categoria": "Los Simpson",
+    "dificultad": "facil"
+  },
+  {
+    "id": 15,
+    "nombre": "Barney Gumble",
+    "categoria": "Los Simpson",
+    "dificultad": "facil"
+  },
+  {
+    "id": 16,
+    "nombre": "El Abuelo (Abraham Simpson)",
+    "categoria": "Los Simpson",
+    "dificultad": "facil"
+  },
+  {
+    "id": 17,
+    "nombre": "Bob Patiño",
+    "categoria": "Los Simpson",
+    "dificultad": "facil"
+  },
+  {
+    "id": 18,
+    "nombre": "Rafa Gorgory",
+    "categoria": "Los Simpson",
+    "dificultad": "facil"
+  },
+  {
+    "id": 19,
+    "nombre": "Patty Bouvier",
+    "categoria": "Los Simpson",
+    "dificultad": "facil"
+  },
+  {
+    "id": 20,
+    "nombre": "Selma Bouvier",
+    "categoria": "Los Simpson",
+    "dificultad": "facil"
+  },
+  {
+    "id": 21,
+    "nombre": "Waylon Smithers",
+    "categoria": "Los Simpson",
+    "dificultad": "facil"
+  },
+  {
+    "id": 22,
+    "nombre": "Lenny Leonard",
+    "categoria": "Los Simpson",
+    "dificultad": "facil"
+  },
+  {
+    "id": 23,
+    "nombre": "Carl Carlson",
+    "categoria": "Los Simpson",
+    "dificultad": "facil"
+  },
+  {
+    "id": 24,
+    "nombre": "Edna Krabappel",
+    "categoria": "Los Simpson",
+    "dificultad": "facil"
+  },
+  {
+    "id": 25,
+    "nombre": "Otto Mann",
+    "categoria": "Los Simpson",
+    "dificultad": "facil"
+  },
+  {
+    "id": 26,
+    "nombre": "Profesor Frink",
+    "categoria": "Los Simpson",
+    "dificultad": "facil"
+  },
+  {
+    "id": 27,
+    "nombre": "Troy McClure",
+    "categoria": "Los Simpson",
+    "dificultad": "facil"
+  },
+  {
+    "id": 28,
+    "nombre": "Dr. Hibbert",
+    "categoria": "Los Simpson",
+    "dificultad": "facil"
+  },
+  {
+    "id": 29,
+    "nombre": "Malcolm",
+    "categoria": "Malcolm in the Middle",
+    "dificultad": "facil"
+  },
+  {
+    "id": 30,
+    "nombre": "Lois",
+    "categoria": "Malcolm in the Middle",
+    "dificultad": "facil"
+  },
+  {
+    "id": 31,
+    "nombre": "Hal",
+    "categoria": "Malcolm in the Middle",
+    "dificultad": "facil"
+  },
+  {
+    "id": 32,
+    "nombre": "Reese",
+    "categoria": "Malcolm in the Middle",
+    "dificultad": "facil"
+  },
+  {
+    "id": 33,
+    "nombre": "Dewey",
+    "categoria": "Malcolm in the Middle",
+    "dificultad": "facil"
+  },
+  {
+    "id": 34,
+    "nombre": "Francis",
+    "categoria": "Malcolm in the Middle",
+    "dificultad": "facil"
+  },
+  {
+    "id": 35,
+    "nombre": "Stevie Kenarban",
+    "categoria": "Malcolm in the Middle",
+    "dificultad": "facil"
+  },
+  {
+    "id": 36,
+    "nombre": "Craig Feldspar",
+    "categoria": "Malcolm in the Middle",
+    "dificultad": "facil"
+  },
+  {
+    "id": 37,
+    "nombre": "La abuela Ida",
+    "categoria": "Malcolm in the Middle",
+    "dificultad": "facil"
+  },
+  {
+    "id": 38,
+    "nombre": "Piama",
+    "categoria": "Malcolm in the Middle",
+    "dificultad": "facil"
+  },
+  {
+    "id": 39,
+    "nombre": "Abe Kenarban",
+    "categoria": "Malcolm in the Middle",
+    "dificultad": "facil"
+  },
+  {
+    "id": 40,
+    "nombre": "Michael Jackson",
+    "categoria": "Cantantes",
+    "dificultad": "facil"
+  },
+  {
+    "id": 41,
+    "nombre": "Bad Bunny",
+    "categoria": "Cantantes",
+    "dificultad": "facil"
+  },
+  {
+    "id": 42,
+    "nombre": "Shakira",
+    "categoria": "Cantantes",
+    "dificultad": "facil"
+  },
+  {
+    "id": 43,
+    "nombre": "Daddy Yankee",
+    "categoria": "Cantantes",
+    "dificultad": "facil"
+  },
+  {
+    "id": 44,
+    "nombre": "Karol G",
+    "categoria": "Cantantes",
+    "dificultad": "facil"
+  },
+  {
+    "id": 45,
+    "nombre": "Billie Eilish",
+    "categoria": "Cantantes",
+    "dificultad": "facil"
+  },
+  {
+    "id": 46,
+    "nombre": "Chayanne",
+    "categoria": "Cantantes",
+    "dificultad": "facil"
+  },
+  {
+    "id": 47,
+    "nombre": "Duki",
+    "categoria": "Cantantes",
+    "dificultad": "facil"
+  },
+  {
+    "id": 48,
+    "nombre": "Quevedo",
+    "categoria": "Cantantes",
+    "dificultad": "facil"
+  },
+  {
+    "id": 49,
+    "nombre": "Kidd Voodoo",
+    "categoria": "Cantantes",
+    "dificultad": "facil"
+  },
+  {
+    "id": 50,
+    "nombre": "Kanye West",
+    "categoria": "Cantantes",
+    "dificultad": "facil"
+  },
+  {
+    "id": 51,
+    "nombre": "Wisin y Yandel",
+    "categoria": "Cantantes",
+    "dificultad": "facil"
+  },
+  {
+    "id": 52,
+    "nombre": "Marcianeke",
+    "categoria": "Cantantes",
+    "dificultad": "facil"
+  },
+  {
+    "id": 53,
+    "nombre": "Pailita",
+    "categoria": "Cantantes",
+    "dificultad": "facil"
+  },
+  {
+    "id": 54,
+    "nombre": "Paloma Mami",
+    "categoria": "Cantantes",
+    "dificultad": "facil"
+  },
+  {
+    "id": 55,
+    "nombre": "Pablo Chill-E",
+    "categoria": "Cantantes",
+    "dificultad": "facil"
+  },
+  {
+    "id": 56,
+    "nombre": "Cris Mj",
+    "categoria": "Cantantes",
+    "dificultad": "facil"
+  },
+  {
+    "id": 57,
+    "nombre": "Young Cister",
+    "categoria": "Cantantes",
+    "dificultad": "facil"
+  },
+  {
+    "id": 58,
+    "nombre": "Easykid",
+    "categoria": "Cantantes",
+    "dificultad": "facil"
+  },
+  {
+    "id": 59,
+    "nombre": "Drake",
+    "categoria": "Cantantes",
+    "dificultad": "facil"
+  },
+  {
+    "id": 60,
+    "nombre": "Ozuna",
+    "categoria": "Cantantes",
+    "dificultad": "facil"
+  },
+  {
+    "id": 61,
+    "nombre": "J Balvin",
+    "categoria": "Cantantes",
+    "dificultad": "facil"
+  },
+  {
+    "id": 62,
+    "nombre": "FloyyMenor",
+    "categoria": "Cantantes",
+    "dificultad": "facil"
+  },
+  {
+    "id": 63,
+    "nombre": "Polimá Westcoast",
+    "categoria": "Cantantes",
+    "dificultad": "facil"
+  },
+  {
+    "id": 64,
+    "nombre": "Maluma",
+    "categoria": "Cantantes",
+    "dificultad": "facil"
+  },
+  {
+    "id": 65,
+    "nombre": "Anuel AA",
+    "categoria": "Cantantes",
+    "dificultad": "facil"
+  },
+  {
+    "id": 66,
+    "nombre": "Jerry (Tom y Jerry)",
+    "categoria": "Personajes de Dibujos Animados",
+    "dificultad": "facil"
+  },
+  {
+    "id": 67,
+    "nombre": "Tom (Tom y Jerry)",
+    "categoria": "Personajes de Dibujos Animados",
+    "dificultad": "facil"
+  },
+  {
+    "id": 68,
+    "nombre": "Scooby-Doo",
+    "categoria": "Personajes de Dibujos Animados",
+    "dificultad": "facil"
+  },
+  {
+    "id": 69,
+    "nombre": "Shaggy",
+    "categoria": "Personajes de Dibujos Animados",
+    "dificultad": "facil"
+  },
+  {
+    "id": 70,
+    "nombre": "Pato Lucas",
+    "categoria": "Personajes de Dibujos Animados",
+    "dificultad": "facil"
+  },
+  {
+    "id": 71,
+    "nombre": "Phineas",
+    "categoria": "Personajes de Dibujos Animados",
+    "dificultad": "facil"
+  },
+  {
+    "id": 72,
+    "nombre": "Ferb",
+    "categoria": "Personajes de Dibujos Animados",
+    "dificultad": "facil"
+  },
+  {
+    "id": 73,
+    "nombre": "Finn el Humano",
+    "categoria": "Personajes de Dibujos Animados",
+    "dificultad": "facil"
+  },
+  {
+    "id": 74,
+    "nombre": "Jake el Perro",
+    "categoria": "Personajes de Dibujos Animados",
+    "dificultad": "facil"
+  },
+  {
+    "id": 75,
+    "nombre": "Mordecai",
+    "categoria": "Personajes de Dibujos Animados",
+    "dificultad": "facil"
+  },
+  {
+    "id": 76,
+    "nombre": "Rigby",
+    "categoria": "Personajes de Dibujos Animados",
+    "dificultad": "facil"
+  },
+  {
+    "id": 77,
+    "nombre": "Gumball Watterson",
+    "categoria": "Personajes de Dibujos Animados",
+    "dificultad": "facil"
+  },
+  {
+    "id": 78,
+    "nombre": "Ben 10",
+    "categoria": "Personajes de Dibujos Animados",
+    "dificultad": "facil"
+  },
+  {
+    "id": 79,
+    "nombre": "Johnny Bravo",
+    "categoria": "Personajes de Dibujos Animados",
+    "dificultad": "facil"
+  },
+  {
+    "id": 80,
+    "nombre": "Dexter",
+    "categoria": "Personajes de Dibujos Animados",
+    "dificultad": "facil"
+  },
+  {
+    "id": 81,
+    "nombre": "Coraje, el Perro Cobarde",
+    "categoria": "Personajes de Dibujos Animados",
+    "dificultad": "facil"
+  },
+  {
+    "id": 82,
+    "nombre": "Bombón",
+    "categoria": "Personajes de Dibujos Animados",
+    "dificultad": "facil"
+  },
+  {
+    "id": 83,
+    "nombre": "Burbuja",
+    "categoria": "Personajes de Dibujos Animados",
+    "dificultad": "facil"
+  },
+  {
+    "id": 84,
+    "nombre": "Bellota",
+    "categoria": "Personajes de Dibujos Animados",
+    "dificultad": "facil"
+  },
+  {
+    "id": 85,
+    "nombre": "Puro Hueso",
+    "categoria": "Personajes de Dibujos Animados",
+    "dificultad": "facil"
+  },
+  {
+    "id": 86,
+    "nombre": "Billy",
+    "categoria": "Personajes de Dibujos Animados",
+    "dificultad": "facil"
+  },
+  {
+    "id": 87,
+    "nombre": "Mandy",
+    "categoria": "Personajes de Dibujos Animados",
+    "dificultad": "facil"
+  },
+  {
+    "id": 88,
+    "nombre": "Ed",
+    "categoria": "Personajes de Dibujos Animados",
+    "dificultad": "facil"
+  },
+  {
+    "id": 89,
+    "nombre": "Steven Universe",
+    "categoria": "Personajes de Dibujos Animados",
+    "dificultad": "facil"
+  },
+  {
+    "id": 90,
+    "nombre": "Bob Esponja",
+    "categoria": "Personajes de Dibujos Animados",
+    "dificultad": "facil"
+  },
+  {
+    "id": 91,
+    "nombre": "Patricio Estrella",
+    "categoria": "Personajes de Dibujos Animados",
+    "dificultad": "facil"
+  },
+  {
+    "id": 92,
+    "nombre": "Calamardo Tentáculos",
+    "categoria": "Personajes de Dibujos Animados",
+    "dificultad": "facil"
+  },
+  {
+    "id": 93,
+    "nombre": "Don Cangrejo",
+    "categoria": "Personajes de Dibujos Animados",
+    "dificultad": "facil"
+  },
+  {
+    "id": 94,
+    "nombre": "Timmy Turner",
+    "categoria": "Personajes de Dibujos Animados",
+    "dificultad": "facil"
+  },
+  {
+    "id": 95,
+    "nombre": "Cosmo",
+    "categoria": "Personajes de Dibujos Animados",
+    "dificultad": "facil"
+  },
+  {
+    "id": 96,
+    "nombre": "Wanda",
+    "categoria": "Personajes de Dibujos Animados",
+    "dificultad": "facil"
+  },
+  {
+    "id": 97,
+    "nombre": "Arnold",
+    "categoria": "Personajes de Dibujos Animados",
+    "dificultad": "facil"
+  },
+  {
+    "id": 98,
+    "nombre": "Helga Pataki",
+    "categoria": "Personajes de Dibujos Animados",
+    "dificultad": "facil"
+  },
+  {
+    "id": 99,
+    "nombre": "Carly Shay (iCarly)",
+    "categoria": "Personajes de Dibujos Animados",
+    "dificultad": "facil"
+  },
+  {
+    "id": 100,
+    "nombre": "El Chavo",
+    "categoria": "Personajes de Dibujos Animados",
+    "dificultad": "facil"
+  },
+  {
+    "id": 101,
+    "nombre": "Don Ramón",
+    "categoria": "Personajes de Dibujos Animados",
+    "dificultad": "facil"
+  },
+  {
+    "id": 102,
+    "nombre": "Ñoño",
+    "categoria": "Personajes de Dibujos Animados",
+    "dificultad": "facil"
+  },
+  {
+    "id": 103,
+    "nombre": "Quico",
+    "categoria": "Personajes de Dibujos Animados",
+    "dificultad": "facil"
+  },
+  {
+    "id": 104,
+    "nombre": "Doña Florinda",
+    "categoria": "Personajes de Dibujos Animados",
+    "dificultad": "facil"
+  },
+  {
+    "id": 105,
+    "nombre": "Señor Barriga",
+    "categoria": "Personajes de Dibujos Animados",
+    "dificultad": "facil"
+  },
+  {
+    "id": 106,
+    "nombre": "Profesor Jirafales",
+    "categoria": "Personajes de Dibujos Animados",
+    "dificultad": "facil"
+  },
+  {
+    "id": 107,
+    "nombre": "Cristiano Ronaldo",
+    "categoria": "Futbolistas",
+    "dificultad": "facil"
+  },
+  {
+    "id": 108,
+    "nombre": "Lionel Messi",
+    "categoria": "Futbolistas",
+    "dificultad": "facil"
+  },
+  {
+    "id": 109,
+    "nombre": "Alexis Sánchez",
+    "categoria": "Futbolistas",
+    "dificultad": "facil"
+  },
+  {
+    "id": 110,
+    "nombre": "Arturo Vidal",
+    "categoria": "Futbolistas",
+    "dificultad": "facil"
+  },
+  {
+    "id": 111,
+    "nombre": "Neymar",
+    "categoria": "Futbolistas",
+    "dificultad": "facil"
+  },
+  {
+    "id": 112,
+    "nombre": "Kylian Mbappé",
+    "categoria": "Futbolistas",
+    "dificultad": "facil"
+  },
+  {
+    "id": 113,
+    "nombre": "Claudio Bravo",
+    "categoria": "Futbolistas",
+    "dificultad": "facil"
+  },
+  {
+    "id": 114,
+    "nombre": "Ronaldinho",
+    "categoria": "Futbolistas",
+    "dificultad": "facil"
+  },
+  {
+    "id": 115,
+    "nombre": "Erling Haaland",
+    "categoria": "Futbolistas",
+    "dificultad": "facil"
+  },
+  {
+    "id": 116,
+    "nombre": "Harry Potter",
+    "categoria": "Películas",
+    "dificultad": "facil"
+  },
+  {
+    "id": 117,
+    "nombre": "Jack Sparrow",
+    "categoria": "Películas",
+    "dificultad": "facil"
+  },
+  {
+    "id": 118,
+    "nombre": "Joker / El Guasón",
+    "categoria": "Películas",
+    "dificultad": "facil"
+  },
+  {
+    "id": 119,
+    "nombre": "Shrek",
+    "categoria": "Películas",
+    "dificultad": "facil"
+  },
+  {
+    "id": 120,
+    "nombre": "Batman",
+    "categoria": "Películas",
+    "dificultad": "facil"
+  },
+  {
+    "id": 121,
+    "nombre": "Remy (Ratatouille)",
+    "categoria": "Películas",
+    "dificultad": "facil"
+  },
+  {
+    "id": 122,
+    "nombre": "Miles Morales",
+    "categoria": "Películas",
+    "dificultad": "facil"
+  },
+  {
+    "id": 123,
+    "nombre": "Baymax",
+    "categoria": "Películas",
+    "dificultad": "facil"
+  },
+  {
+    "id": 124,
+    "nombre": "Po (Kung Fu Panda)",
+    "categoria": "Películas",
+    "dificultad": "facil"
+  },
+  {
+    "id": 125,
+    "nombre": "Mr. Increíble",
+    "categoria": "Películas",
+    "dificultad": "facil"
+  },
+  {
+    "id": 126,
+    "nombre": "Elastigirl",
+    "categoria": "Películas",
+    "dificultad": "facil"
+  },
+  {
+    "id": 127,
+    "nombre": "Nick Wilde (Zootopia)",
+    "categoria": "Películas",
+    "dificultad": "facil"
+  },
+  {
+    "id": 128,
+    "nombre": "Coraline",
+    "categoria": "Películas",
+    "dificultad": "facil"
+  },
+  {
+    "id": 129,
+    "nombre": "Buzz Lightyear",
+    "categoria": "Películas",
+    "dificultad": "facil"
+  },
+  {
+    "id": 130,
+    "nombre": "Woody",
+    "categoria": "Películas",
+    "dificultad": "facil"
+  },
+  {
+    "id": 131,
+    "nombre": "El Gato con Botas",
+    "categoria": "Películas",
+    "dificultad": "facil"
+  },
+  {
+    "id": 132,
+    "nombre": "Burro (Shrek)",
+    "categoria": "Películas",
+    "dificultad": "facil"
+  },
+  {
+    "id": 133,
+    "nombre": "Felipe Camiroaga",
+    "categoria": "Personajes Chilenos 🇨🇱",
+    "dificultad": "facil"
+  },
+  {
+    "id": 134,
+    "nombre": "Pamela Díaz (\"La Fiera\")",
+    "categoria": "Personajes Chilenos 🇨🇱",
+    "dificultad": "facil"
+  },
+  {
+    "id": 135,
+    "nombre": "Patricia Maldonado",
+    "categoria": "Personajes Chilenos 🇨🇱",
+    "dificultad": "facil"
+  },
+  {
+    "id": 136,
+    "nombre": "Junior Playboy",
+    "categoria": "Personajes Chilenos 🇨🇱",
+    "dificultad": "facil"
+  },
+  {
+    "id": 137,
+    "nombre": "Kike Morandé",
+    "categoria": "Personajes Chilenos 🇨🇱",
+    "dificultad": "facil"
+  },
+  {
+    "id": 138,
+    "nombre": "Martín Cárcamo",
+    "categoria": "Personajes Chilenos 🇨🇱",
+    "dificultad": "facil"
+  },
+  {
+    "id": 139,
+    "nombre": "Sebastián Piñera",
+    "categoria": "Personajes Chilenos 🇨🇱",
+    "dificultad": "facil"
+  },
+  {
+    "id": 140,
+    "nombre": "José Antonio Kast",
+    "categoria": "Personajes Chilenos 🇨🇱",
+    "dificultad": "facil"
+  },
+  {
+    "id": 141,
+    "nombre": "Karol Dance",
+    "categoria": "Personajes Chilenos 🇨🇱",
+    "dificultad": "facil"
+  },
+  {
+    "id": 142,
+    "nombre": "El Papi Micky",
+    "categoria": "Personajes Chilenos 🇨🇱",
+    "dificultad": "facil"
+  },
+  {
+    "id": 143,
+    "nombre": "René Puente",
+    "categoria": "Personajes Chilenos 🇨🇱",
+    "dificultad": "facil"
+  },
+  {
+    "id": 144,
+    "nombre": "Diego González",
+    "categoria": "Personajes Chilenos 🇨🇱",
+    "dificultad": "facil"
+  },
+  {
+    "id": 145,
+    "nombre": "Naya Fácil",
+    "categoria": "Personajes Chilenos 🇨🇱",
+    "dificultad": "facil"
+  },
+  {
+    "id": 146,
+    "nombre": "JB The Voice",
+    "categoria": "Personajes Chilenos 🇨🇱",
+    "dificultad": "facil"
+  },
+  {
+    "id": 147,
+    "nombre": "Carlitos Vera",
+    "categoria": "Personajes Chilenos 🇨🇱",
+    "dificultad": "facil"
+  },
+  {
+    "id": 148,
+    "nombre": "Don Francisco",
+    "categoria": "Personajes Chilenos 🇨🇱",
+    "dificultad": "facil"
+  },
+  {
+    "id": 149,
+    "nombre": "Pedro Pascal",
+    "categoria": "Personajes Chilenos 🇨🇱",
+    "dificultad": "facil"
+  },
+  {
+    "id": 150,
+    "nombre": "Bombo Fica",
+    "categoria": "Personajes Chilenos 🇨🇱",
+    "dificultad": "facil"
+  },
+  {
+    "id": 151,
+    "nombre": "Luis Jara",
+    "categoria": "Personajes Chilenos 🇨🇱",
+    "dificultad": "facil"
+  },
+  {
+    "id": 152,
+    "nombre": "Flaitiano",
+    "categoria": "Personajes Chilenos 🇨🇱",
+    "dificultad": "facil"
+  },
+  {
+    "id": 153,
+    "nombre": "Goku",
+    "categoria": "Anime — Nivel Fácil",
+    "dificultad": "facil"
+  },
+  {
+    "id": 154,
+    "nombre": "Vegeta",
+    "categoria": "Anime — Nivel Fácil",
+    "dificultad": "facil"
+  },
+  {
+    "id": 155,
+    "nombre": "Naruto Uzumaki",
+    "categoria": "Anime — Nivel Fácil",
+    "dificultad": "facil"
+  },
+  {
+    "id": 156,
+    "nombre": "Light Yagami",
+    "categoria": "Anime — Nivel Fácil",
+    "dificultad": "facil"
+  },
+  {
+    "id": 157,
+    "nombre": "L",
+    "categoria": "Anime — Nivel Fácil",
+    "dificultad": "facil"
+  },
+  {
+    "id": 158,
+    "nombre": "Eren Yeager",
+    "categoria": "Anime — Nivel Fácil",
+    "dificultad": "facil"
+  },
+  {
+    "id": 159,
+    "nombre": "Levi Ackerman",
+    "categoria": "Anime — Nivel Fácil",
+    "dificultad": "facil"
+  },
+  {
+    "id": 160,
+    "nombre": "Saitama",
+    "categoria": "Anime — Nivel Fácil",
+    "dificultad": "facil"
+  },
+  {
+    "id": 161,
+    "nombre": "Pikachu",
+    "categoria": "Anime — Nivel Fácil",
+    "dificultad": "facil"
+  },
+  {
+    "id": 162,
+    "nombre": "Ash Ketchum",
+    "categoria": "Anime — Nivel Fácil",
+    "dificultad": "facil"
+  },
+  {
+    "id": 163,
+    "nombre": "ElRubius",
+    "categoria": "Youtubers / Streamers",
+    "dificultad": "facil"
+  },
+  {
+    "id": 164,
+    "nombre": "Ibai Llanos",
+    "categoria": "Youtubers / Streamers",
+    "dificultad": "facil"
+  },
+  {
+    "id": 165,
+    "nombre": "AuronPlay",
+    "categoria": "Youtubers / Streamers",
+    "dificultad": "facil"
+  },
+  {
+    "id": 166,
+    "nombre": "Luisito Comunica",
+    "categoria": "Youtubers / Streamers",
+    "dificultad": "facil"
+  },
+  {
+    "id": 167,
+    "nombre": "Vegetta777",
+    "categoria": "Youtubers / Streamers",
+    "dificultad": "facil"
+  },
+  {
+    "id": 168,
+    "nombre": "Germán Garmendia (HolaSoyGerman)",
+    "categoria": "Youtubers / Streamers",
+    "dificultad": "facil"
+  },
+  {
+    "id": 169,
+    "nombre": "Dylantero Sin Imaginación",
+    "categoria": "Youtubers / Streamers",
+    "dificultad": "facil"
+  },
+  {
+    "id": 170,
+    "nombre": "Fernanfloo",
+    "categoria": "Youtubers / Streamers",
+    "dificultad": "facil"
+  },
+  {
+    "id": 171,
+    "nombre": "TheGrefg",
+    "categoria": "Youtubers / Streamers",
+    "dificultad": "facil"
+  },
+  {
+    "id": 172,
+    "nombre": "ElMariana",
+    "categoria": "Youtubers / Streamers",
+    "dificultad": "facil"
+  },
+  {
+    "id": 173,
+    "nombre": "IShowSpeed",
+    "categoria": "Youtubers / Streamers",
+    "dificultad": "facil"
+  },
+  {
+    "id": 174,
+    "nombre": "MrBeast",
+    "categoria": "Youtubers / Streamers",
+    "dificultad": "facil"
+  },
+  {
+    "id": 175,
+    "nombre": "Steve (Minecraft)",
+    "categoria": "Personajes de Videojuegos 🎮",
+    "dificultad": "facil"
+  },
+  {
+    "id": 176,
+    "nombre": "Crash Bandicoot",
+    "categoria": "Personajes de Videojuegos 🎮",
+    "dificultad": "facil"
+  },
+  {
+    "id": 177,
+    "nombre": "Kratos",
+    "categoria": "Personajes de Videojuegos 🎮",
+    "dificultad": "facil"
+  },
+  {
+    "id": 178,
+    "nombre": "Mario",
+    "categoria": "Personajes de Videojuegos 🎮",
+    "dificultad": "facil"
+  },
+  {
+    "id": 179,
+    "nombre": "Sonic",
+    "categoria": "Personajes de Videojuegos 🎮",
+    "dificultad": "facil"
+  },
+  {
+    "id": 180,
+    "nombre": "Sub-Zero",
+    "categoria": "Personajes de Videojuegos 🎮",
+    "dificultad": "facil"
+  },
+  {
+    "id": 181,
+    "nombre": "Spider-Man",
+    "categoria": "Superhéroes 🦸",
+    "dificultad": "facil"
+  },
+  {
+    "id": 182,
+    "nombre": "Batman",
+    "categoria": "Superhéroes 🦸",
+    "dificultad": "facil"
+  },
+  {
+    "id": 183,
+    "nombre": "Superman",
+    "categoria": "Superhéroes 🦸",
+    "dificultad": "facil"
+  },
+  {
+    "id": 184,
+    "nombre": "Iron Man",
+    "categoria": "Superhéroes 🦸",
+    "dificultad": "facil"
+  },
+  {
+    "id": 185,
+    "nombre": "Capitán América",
+    "categoria": "Superhéroes 🦸",
+    "dificultad": "facil"
+  },
+  {
+    "id": 186,
+    "nombre": "Thor",
+    "categoria": "Superhéroes 🦸",
+    "dificultad": "facil"
+  },
+  {
+    "id": 187,
+    "nombre": "Flash",
+    "categoria": "Superhéroes 🦸",
+    "dificultad": "facil"
+  },
+  {
+    "id": 188,
+    "nombre": "Hulk",
+    "categoria": "Superhéroes 🦸",
+    "dificultad": "facil"
+  },
+  {
+    "id": 189,
+    "nombre": "Wolverine",
+    "categoria": "Superhéroes 🦸",
+    "dificultad": "facil"
+  },
+  {
+    "id": 190,
+    "nombre": "Deadpool",
+    "categoria": "Superhéroes 🦸",
+    "dificultad": "facil"
+  },
+  {
+    "id": 191,
+    "nombre": "Aquaman",
+    "categoria": "Superhéroes 🦸",
+    "dificultad": "facil"
+  },
+  {
+    "id": 192,
+    "nombre": "Thanos",
+    "categoria": "Villanos 😈",
+    "dificultad": "facil"
+  },
+  {
+    "id": 193,
+    "nombre": "Duende Verde (Green Goblin)",
+    "categoria": "Villanos 😈",
+    "dificultad": "facil"
+  },
+  {
+    "id": 194,
+    "nombre": "Venom",
+    "categoria": "Villanos 😈",
+    "dificultad": "facil"
+  },
+  {
+    "id": 195,
+    "nombre": "Loki",
+    "categoria": "Villanos 😈",
+    "dificultad": "facil"
+  },
+  {
+    "id": 196,
+    "nombre": "Scar (El Rey León)",
+    "categoria": "Villanos 😈",
+    "dificultad": "facil"
+  },
+  {
+    "id": 197,
+    "nombre": "Joker / El Guasón",
+    "categoria": "Villanos 😈",
+    "dificultad": "facil"
+  },
+  {
+    "id": 198,
+    "nombre": "Voldemort",
+    "categoria": "Villanos 😈",
+    "dificultad": "facil"
+  },
+  {
+    "id": 199,
+    "nombre": "Ricardo Milos",
+    "categoria": "Otros / Random 🤡",
+    "dificultad": "facil"
+  },
+  {
+    "id": 200,
+    "nombre": "Jeffrey Epstein",
+    "categoria": "Otros / Random 🤡",
+    "dificultad": "facil"
+  },
+  {
+    "id": 201,
+    "nombre": "Itachi Uchiha",
+    "categoria": "Anime — Nivel Medio / Arriesgado 🍥",
+    "dificultad": "dificil"
+  },
+  {
+    "id": 202,
+    "nombre": "Madara Uchiha",
+    "categoria": "Anime — Nivel Medio / Arriesgado 🍥",
+    "dificultad": "dificil"
+  },
+  {
+    "id": 203,
+    "nombre": "Jiraiya",
+    "categoria": "Anime — Nivel Medio / Arriesgado 🍥",
+    "dificultad": "dificil"
+  },
+  {
+    "id": 204,
+    "nombre": "Pain",
+    "categoria": "Anime — Nivel Medio / Arriesgado 🍥",
+    "dificultad": "dificil"
+  },
+  {
+    "id": 205,
+    "nombre": "Gaara",
+    "categoria": "Anime — Nivel Medio / Arriesgado 🍥",
+    "dificultad": "dificil"
+  },
+  {
+    "id": 206,
+    "nombre": "Orochimaru",
+    "categoria": "Anime — Nivel Medio / Arriesgado 🍥",
+    "dificultad": "dificil"
+  },
+  {
+    "id": 207,
+    "nombre": "Kurama",
+    "categoria": "Anime — Nivel Medio / Arriesgado 🍥",
+    "dificultad": "dificil"
+  },
+  {
+    "id": 208,
+    "nombre": "Hisoka",
+    "categoria": "Anime — Nivel Medio / Arriesgado 🍥",
+    "dificultad": "dificil"
+  },
+  {
+    "id": 209,
+    "nombre": "Killua Zoldyck",
+    "categoria": "Anime — Nivel Medio / Arriesgado 🍥",
+    "dificultad": "dificil"
+  },
+  {
+    "id": 210,
+    "nombre": "Gon Freecss",
+    "categoria": "Anime — Nivel Medio / Arriesgado 🍥",
+    "dificultad": "dificil"
+  },
+  {
+    "id": 211,
+    "nombre": "Meruem",
+    "categoria": "Anime — Nivel Medio / Arriesgado 🍥",
+    "dificultad": "dificil"
+  },
+  {
+    "id": 212,
+    "nombre": "Ryuk",
+    "categoria": "Anime — Nivel Medio / Arriesgado 🍥",
+    "dificultad": "dificil"
+  },
+  {
+    "id": 213,
+    "nombre": "Misa Amane",
+    "categoria": "Anime — Nivel Medio / Arriesgado 🍥",
+    "dificultad": "dificil"
+  },
+  {
+    "id": 214,
+    "nombre": "Near",
+    "categoria": "Anime — Nivel Medio / Arriesgado 🍥",
+    "dificultad": "dificil"
+  },
+  {
+    "id": 215,
+    "nombre": "Mikasa Ackerman",
+    "categoria": "Anime — Nivel Medio / Arriesgado 🍥",
+    "dificultad": "dificil"
+  },
+  {
+    "id": 216,
+    "nombre": "Armin Arlert",
+    "categoria": "Anime — Nivel Medio / Arriesgado 🍥",
+    "dificultad": "dificil"
+  },
+  {
+    "id": 217,
+    "nombre": "Reiner Braun",
+    "categoria": "Anime — Nivel Medio / Arriesgado 🍥",
+    "dificultad": "dificil"
+  },
+  {
+    "id": 218,
+    "nombre": "Erwin Smith",
+    "categoria": "Anime — Nivel Medio / Arriesgado 🍥",
+    "dificultad": "dificil"
+  },
+  {
+    "id": 219,
+    "nombre": "Dabi",
+    "categoria": "Anime — Nivel Medio / Arriesgado 🍥",
+    "dificultad": "dificil"
+  },
+  {
+    "id": 220,
+    "nombre": "Shigaraki",
+    "categoria": "Anime — Nivel Medio / Arriesgado 🍥",
+    "dificultad": "dificil"
+  },
+  {
+    "id": 221,
+    "nombre": "Sukuna",
+    "categoria": "Anime — Nivel Medio / Arriesgado 🍥",
+    "dificultad": "dificil"
+  },
+  {
+    "id": 222,
+    "nombre": "Edward Elric",
+    "categoria": "Anime — Nivel Medio / Arriesgado 🍥",
+    "dificultad": "dificil"
+  },
+  {
+    "id": 223,
+    "nombre": "Alphonse Elric",
+    "categoria": "Anime — Nivel Medio / Arriesgado 🍥",
+    "dificultad": "dificil"
+  },
+  {
+    "id": 224,
+    "nombre": "Denji",
+    "categoria": "Anime — Nivel Medio / Arriesgado 🍥",
+    "dificultad": "dificil"
+  },
+  {
+    "id": 225,
+    "nombre": "Makima",
+    "categoria": "Anime — Nivel Medio / Arriesgado 🍥",
+    "dificultad": "dificil"
+  },
+  {
+    "id": 226,
+    "nombre": "Power",
+    "categoria": "Anime — Nivel Medio / Arriesgado 🍥",
+    "dificultad": "dificil"
+  },
+  {
+    "id": 227,
+    "nombre": "Kirito",
+    "categoria": "Anime — Nivel Medio / Arriesgado 🍥",
+    "dificultad": "dificil"
+  }
+];
   </script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+(() => {
+  const screens=['home','setup','join','lobby','prep','pass','reveal','finish'];
+  const baseDeDatos=window.baseDeDatos||[];
+  const state={mode:null,roomCode:'',peer:null,hostConn:null,connections:new Map(),players:[],hostName:'',playerName:'',playerId:'',categories:[],difficulty:'media',assignments:[],myAssignment:null,countdownTimer:null};
+  const $=id=>document.getElementById(id);
+  const setText=(id,value)=>{if($(id)) $(id).textContent=value;};
+
+  function show(id){screens.forEach(s=>$(s)?.classList.toggle('active',s===id));const labels={home:'',setup:'1 / 3',join:'1 / 3',lobby:'2 / 3',prep:'3 / 3',pass:'3 / 3',reveal:'3 / 3',finish:''};setText('stepBadge',labels[id]||'');}
+  function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+  function notice(text,type='info',where='roomNotice'){
+    const ids=['roomNotice','joinNotice','lobbyNotice'];
+    ids.forEach(id=>{const el=$(id);if(el){el.textContent='';el.className='room-notice';}});
+    const el=$(where); if(!el)return; el.textContent=text||''; el.className=`room-notice ${type} ${text?'show':''}`;
+  }
+  function clearNotice(){['roomNotice','joinNotice','lobbyNotice'].forEach(id=>{const el=$(id);if(el){el.textContent='';el.className='room-notice';}})}
+  function clearCountdown(){if(state.countdownTimer){clearInterval(state.countdownTimer);state.countdownTimer=null;}}
+  function destroyNetwork(){clearCountdown();state.connections.forEach(c=>{try{c.close();}catch(e){}});state.connections.clear();if(state.hostConn){try{state.hostConn.close();}catch(e){}}state.hostConn=null;if(state.peer){try{state.peer.destroy();}catch(e){}}state.peer=null;}
+  function roomCode(){const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';return Array.from({length:5},()=>chars[Math.floor(Math.random()*chars.length)]).join('');}
+  function shuffle(arr){const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+  function difficultyPool(d,pool){const exact=pool.filter(p=>p.dificultad===d);if(exact.length>=state.players)return exact;if(d==='media')return[...exact,...pool.filter(p=>p.dificultad==='facil')];if(d==='dificil')return[...exact,...pool.filter(p=>p.dificultad==='media'),...pool.filter(p=>p.dificultad==='facil')];return exact.length?exact:pool;}
+
+  function renderCategories(){
+    const cats=[...new Set(baseDeDatos.map(p=>p.categoria))];
+    $('categoryBox').innerHTML='';
+    cats.forEach(cat=>{const b=document.createElement('button');b.type='button';b.className='chip';b.textContent=cat;b.onclick=()=>{b.classList.toggle('selected');state.categories=[...document.querySelectorAll('#categoryBox .chip.selected')].map(x=>x.textContent);$('toggleCategoriesBtn').textContent=state.categories.length===cats.length?'Quitar selección':'Seleccionar todas';};$('categoryBox').appendChild(b);});
+  }
+  function setDifficulty(v){state.difficulty=v;document.querySelectorAll('.diff').forEach(b=>b.classList.toggle('selected',b.dataset.diff===v));}
+
+  function hostLobbyPlayers(){return[{id:state.playerId,name:state.hostName,host:true},...Array.from(state.connections.entries()).filter(([,c])=>c.meta?.name).map(([id,c])=>({id,name:c.meta.name,host:false}))];}
+  function renderLobbyHost(){
+    const players=hostLobbyPlayers();
+    setText('roomCodeValue',state.roomCode);setText('lobbyCount',`${players.length} / 20 jugadores`);
+    $('lobbyList').innerHTML=players.map(p=>`<div class="lobby-player"><span class="player-icon">${p.host?'👑':'🟢'}</span><span>${escapeHtml(p.name)}</span><span class="lobby-role">${p.host?'anfitrión':'listo'}</span></div>`).join('');
+    $('startRoomBtn').disabled=players.length<2;$('startRoomBtn').style.display='block';$('waitingHost').style.display='none';
+  }
+  function renderLobbyPlayer(players){
+    setText('roomCodeValue',state.roomCode);setText('lobbyCount',`${players?.length||1} jugadores conectados`);
+    const list=players?.length?players:[{name:state.playerName,host:false}];
+    $('lobbyList').innerHTML=list.map(p=>`<div class="lobby-player"><span class="player-icon">${p.host?'👑':'🟢'}</span><span>${escapeHtml(p.name)}</span><span class="lobby-role">${p.host?'anfitrión':'listo'}</span></div>`).join('');
+    $('startRoomBtn').style.display='none';$('waitingHost').style.display='block';
+  }
+  function broadcast(payload){state.connections.forEach(c=>{if(c.open){try{c.send(payload);}catch(e){}}});}
+
+  function setupHost(){
+    state.mode='host';state.roomCode=roomCode();state.hostName=($('hostNameInput').value.trim()||'Anfitrión').slice(0,30);state.playerId='host';destroyNetwork();
+    $('createRoomBtn').disabled=true;notice('Creando sala…');
+    state.peer=new Peer(`adivina-${state.roomCode.toLowerCase()}`,{debug:0});
+    state.peer.on('open',id=>{state.peer.id=id;renderLobbyHost();show('lobby');notice('Sala creada. Comparte el código con los demás.','success','lobbyNotice');});
+    state.peer.on('connection',conn=>{
+      conn.on('open',()=>{
+        state.connections.set(conn.peer,conn);
+        conn.on('data',data=>handleHostData(conn,data));
+        conn.on('close',()=>{state.connections.delete(conn.peer);renderLobbyHost();broadcast({type:'lobby',players:hostLobbyPlayers()});});
+        conn.on('error',()=>{state.connections.delete(conn.peer);renderLobbyHost();});
+        conn.send({type:'hello',room:state.roomCode,hostName:state.hostName});
+      });
+    });
+    state.peer.on('error',err=>{console.error(err);$('createRoomBtn').disabled=false;notice(err?.type==='unavailable-id'?'Ese código ya está ocupado. Crea la sala otra vez.':'No se pudo conectar la sala. Revisa internet.','error');});
+  }
+
+  function handleHostData(conn,data){
+    if(!data||typeof data!=='object')return;
+    if(data.type==='join'){
+      if(state.connections.size>=19){conn.send({type:'error',message:'La sala está llena.'});return;}
+      conn.meta={name:String(data.name||'Jugador').slice(0,30),playerId:String(data.playerId||conn.peer)};
+      conn.send({type:'accepted',room:state.roomCode,hostName:state.hostName});
+      renderLobbyHost();broadcast({type:'lobby',players:hostLobbyPlayers()});
+    }
+    if(data.type==='leave'){state.connections.delete(conn.peer);try{conn.close();}catch(e){}renderLobbyHost();broadcast({type:'lobby',players:hostLobbyPlayers()});}
+  }
+
+  function connectPlayer(){
+    const code=$('joinRoomCode').value.trim().toUpperCase(),name=$('joinName').value.trim().slice(0,30);
+    if(!/^[A-Z2-9]{5}$/.test(code))return notice('Escribe un código de 5 caracteres.','error','joinNotice');
+    if(!name)return notice('Escribe tu nombre.','error','joinNotice');
+    destroyNetwork();state.mode='player';state.roomCode=code;state.playerName=name;state.playerId=`p-${Math.random().toString(36).slice(2,10)}`;$('joinRoomBtn').disabled=true;notice('Conectando…','','joinNotice');
+    state.peer=new Peer({debug:0});
+    state.peer.on('open',id=>{
+      const conn=state.peer.connect(`adivina-${code.toLowerCase()}`,{reliable:true});state.hostConn=conn;
+      conn.on('open',()=>{conn.send({type:'join',name,playerId:state.playerId});conn.on('data',handlePlayerData);conn.on('close',()=>notice('Se perdió la conexión con el anfitrión.','error','lobbyNotice'));});
+      conn.on('error',()=>notice('No se pudo entrar a esa sala.','error','joinNotice'));
+    });
+    state.peer.on('error',()=>{$('joinRoomBtn').disabled=false;notice('No se pudo conectar. Revisa el código e internet.','error','joinNotice');});
+  }
+
+  function handlePlayerData(data){
+    if(!data||typeof data!=='object')return;
+    if(data.type==='error'){notice(data.message||'No se pudo entrar.','error','joinNotice');$('joinRoomBtn').disabled=false;return;}
+    if(data.type==='hello'){state.roomCode=data.room;}
+    if(data.type==='accepted'){show('lobby');renderLobbyPlayer([{name:data.hostName,host:true},{name:state.playerName,host:false}]);notice('Conectado. Esperando al anfitrión.','success','lobbyNotice');}
+    if(data.type==='lobby'){show('lobby');renderLobbyPlayer(data.players);}
+    if(data.type==='start'){receiveStart(data);}
+    if(data.type==='newGame'){state.myAssignment=null;show('lobby');renderLobbyPlayer(data.players||[]);}
+  }
+
+  function makeAssignments(){
+    const players=hostLobbyPlayers();state.players=players.length;
+    let pool=baseDeDatos.filter(p=>state.categories.includes(p.categoria));pool=shuffle(difficultyPool(state.difficulty,pool));
+    if(pool.length<players.length){notice(`No hay suficientes personajes únicos. Hay ${pool.length} disponibles y necesitas ${players.length}.`,'error','lobbyNotice');return null;}
+    return players.map((p,i)=>({playerId:p.id,player:p.name,character:pool[i]}));
+  }
+
+  function startRoom(){
+    if(state.mode!=='host')return;
+    const assignments=makeAssignments();if(!assignments)return;
+    state.assignments=assignments;
+    const startsAt=Date.now()+700,revealAt=startsAt+5000;
+    assignments.forEach(a=>{
+      const payload={type:'start',startsAt,revealAt,assignment:a};
+      if(a.playerId==='host'){state.myAssignment=a;renderPrep(startsAt,revealAt);}
+      else {const conn=[...state.connections.values()].find(c=>c.meta?.playerId===a.playerId);if(conn?.open){try{conn.send(payload);}catch(e){}}}
+    });
+    renderPrep(startsAt,revealAt);show('prep');scheduleReveal(revealAt);
+  }
+
+  function renderPrep(startsAt,revealAt){
+    setText('prepRoomCode',state.roomCode);setText('prepPlayerName',state.myAssignment?.player||state.playerName||state.hostName);
+    setText('prepMessage','Pon tu celular frente a ti con la pantalla visible para los demás.');setText('prepSub','La partida comienza en…');
+    const sec=Math.max(1,Math.ceil((revealAt-Date.now())/1000));setText('prepCountdown',sec);
+  }
+
+  function receiveStart(data){state.myAssignment=data.assignment;renderPrep(data.startsAt,data.revealAt);show('prep');scheduleReveal(data.revealAt);}
+  function scheduleReveal(revealAt){
+    clearCountdown();
+    const tick=()=>{const sec=Math.ceil((revealAt-Date.now())/1000);setText('prepCountdown',Math.max(0,sec));if(Date.now()>=revealAt){clearCountdown();renderReveal();show('reveal');}};
+    tick();state.countdownTimer=setInterval(tick,100);
+  }
+  function renderReveal(){
+    const a=state.myAssignment;if(!a)return;
+    setText('revealPlayer',a.player);setText('characterName',a.character.nombre);setText('characterCategory',a.character.categoria);setText('doNotTell',a.player);
+  }
+
+  function newGameSameRoom(){
+    clearCountdown();state.assignments=[];state.myAssignment=null;
+    if(state.mode==='host'){broadcast({type:'newGame',players:hostLobbyPlayers()});renderLobbyHost();show('lobby');notice('Nueva partida lista. Elige cuándo iniciar.','success','lobbyNotice');}
+    else {try{state.hostConn?.send({type:'readyAgain'});}catch(e){}show('lobby');notice('Esperando al anfitrión para iniciar otra partida.','','lobbyNotice');}
+  }
+
+  function leaveRoom(){destroyNetwork();state.mode=null;state.roomCode='';state.myAssignment=null;$('joinRoomBtn').disabled=false;show('home');}
+
+  async function copyRoom(){try{await navigator.clipboard.writeText(state.roomCode);notice('Código copiado.','success','lobbyNotice');}catch(e){notice(`Código: ${state.roomCode}`,'success','lobbyNotice');}}
+
+  $('newGameBtn').onclick=()=>{destroyNetwork();state.mode='host';state.categories=[];clearNotice();$('hostNameInput').value='';document.querySelectorAll('#categoryBox .chip').forEach(c=>c.classList.remove('selected'));$('toggleCategoriesBtn').textContent='Seleccionar todas';setDifficulty('media');show('setup');};
+  $('goJoinBtn').onclick=()=>{clearNotice();show('join');};
+  $('goCreateBtn').onclick=()=>{clearNotice();show('setup');};
+  $('backHomeBtn').onclick=()=>{destroyNetwork();show('home');};
+  $('createRoomBtn').onclick=setupHost;
+  $('joinRoomBtn').onclick=connectPlayer;
+  $('startRoomBtn').onclick=startRoom;
+  $('copyRoomBtn').onclick=copyRoom;
+  $('leaveRoomBtn').onclick=leaveRoom;
+  $('restartBtn').onclick=newGameSameRoom;
+  $('newGameFromReveal').onclick=newGameSameRoom;
+  $('finishHomeBtn').onclick=leaveRoom;
+  $('toggleCategoriesBtn').onclick=()=>{const chips=[...document.querySelectorAll('#categoryBox .chip')];const selectAll=chips.some(c=>!c.classList.contains('selected'));chips.forEach(c=>c.classList.toggle('selected',selectAll));state.categories=selectAll?chips.map(c=>c.textContent):[];$('toggleCategoriesBtn').textContent=selectAll?'Quitar selección':'Seleccionar todas';};
+  document.querySelectorAll('.diff').forEach(b=>b.onclick=()=>setDifficulty(b.dataset.diff));
+  window.addEventListener('beforeunload',()=>{try{state.hostConn?.send({type:'leave'});}catch(e){}destroyNetwork();});
+  show('home');renderCategories();setDifficulty('media');
+})();
+</script>
 </body>
 </html>
